@@ -364,7 +364,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드는 꾸미기에서 올린 그대로(기본)입니다. 랜덤1은 크기와 방향이 제각각인 이미지들이 쌓인 카드, 랜덤2는 겹치지 않게 일정한 규칙(격자·좌우반전 격자·엇갈림·줄 바꿔 나열)으로 놓은 카드, 랜덤3은 두 방식을 섞은 카드입니다.</p>
+        <p class="hint">첫 카드는 꾸미기에서 올린 그대로(기본)입니다. 랜덤1은 이미지를 크기 제각각으로 서로 절반 넘게 가리지 않게 겹치고 글씨는 맨 위 가운데에 한 번, 랜덤2는 글씨를 크기를 달리해 카드 가득 반복하고 그 위에 이미지를 올려 둔 그대로, 랜덤3은 3×3·4×4·5×5 격자에 이미지와 글씨를 칸의 3분의 2 이상 채워 가지런히 놓은 카드입니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 팔레트의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1891,65 +1891,67 @@ $('#stageNew').addEventListener('click', () => { stage = []; sel = null; $('#sta
 /* ---------- step 4: default card + 3 random re-arrangements of the same objects ---------- */
 let res = [], resKey = '', pickIdx = 0;
 const stageKey = () => JSON.stringify(stage.map(it => [it.id, it.x, it.y, it.s, it.rot, it.flip, it.text, it.color, it.font, it.src && (it.src.id || it.src.baseVer || 0)])) + st.border + st.bstyle;
-const RTAGS = ['기본', '쌓기', '규칙', '혼합'];
 const rr = (a, b) => a + rng() * (b - a);
-const gauss = () => (rng() + rng() + rng() - 1.5) / 1.5;   /* about -1..1, centre-heavy */
 const withS = (it, s) => Object.assign({}, it, { s, _bm: null, _bmk: '' });
-/* 1) pile: many copies with random sizes and directions, heaped around the middle */
-function pileCard(items, extraN) {
-  const out = [], per = Math.max(2, Math.ceil(10 / items.length));
-  items.forEach(it => {
-    for (let c = 0; c < per; c++) {
-      const q = withS(it, it.s * rr(0.45, 1.5)), [w0, h0] = fitSize(q);
-      if (Math.max(w0, h0) > 330) q.s *= 330 / Math.max(w0, h0);
-      q.x = 180 + gauss() * 105; q.y = 180 + gauss() * 105;
-      q.rot = rr(-180, 180); q.flip = rng() < 0.5;
-      out.push(q);
-    }
-  });
-  /* shuffle the stacking order so the heap looks natural */
-  shuffle(out);
-  return out.slice(0, extraN || 12);
-}
-/* 2) pattern: objects never overlap; one of a few fixed rules */
-const PATTERNS = ['grid', 'mirror', 'brick', 'rows'];
-function patternCells(kind) {
-  const cells = [];
-  if (kind === 'brick') {
-    const cols = pick([2, 3]), rows = pick([3, 4]), cw = 360 / cols, ch = 360 / rows;
-    for (let r = 0; r < rows; r++) {
-      const off = r % 2 ? cw / 2 : 0, n = r % 2 ? cols - 1 : cols;
-      for (let c = 0; c < n; c++) cells.push({ cx: off + cw * (c + 0.5), cy: ch * (r + 0.5), cw, ch, mir: false });
-    }
-  } else {
-    const [cols, rows] = pick([[2, 2], [3, 3], [2, 3], [3, 2], [2, 4]]), cw = 360 / cols, ch = 360 / rows;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const mir = kind === 'mirror' ? (r + c) % 2 === 1 : false;
-      cells.push({ cx: cw * (c + 0.5), cy: ch * (r + 0.5), cw, ch, mir, row: r });
+const isImg = it => it.type === 'photo';
+const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
+/* 1) overlap: images at random sizes may overlap but never hide more than half of each other; one text on top, centred */
+function overlapCard(items) {
+  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), pool = imgs.length ? imgs : items, out = [], boxes = [];
+  const n = 5 + ((rng() * 3) | 0);
+  for (let k = 0; k < n; k++) {
+    const src = pool[k % pool.length];
+    let k2 = rr(0.45, 1.25), done = false;
+    for (let t = 0; t < 120 && !done; t++) {
+      if (t % 30 === 29) k2 *= 0.8;
+      const q = capSide(withS(src, src.s * k2), 300), [w, h] = fitSize(q);
+      const x = w < 340 ? rr(w / 2 + 6, 354 - w / 2) : 180, y = h < 340 ? rr(h / 2 + 6, 354 - h / 2) : 180;
+      const box = [x - w / 2, y - h / 2, x + w / 2, y + h / 2];
+      const ok = boxes.every(o => {
+        const iw = Math.min(box[2], o[2]) - Math.max(box[0], o[0]), ih = Math.min(box[3], o[3]) - Math.max(box[1], o[1]);
+        if (iw <= 0 || ih <= 0) return true;
+        return iw * ih <= 0.5 * Math.min((box[2] - box[0]) * (box[3] - box[1]), (o[2] - o[0]) * (o[3] - o[1]));
+      });
+      if (ok) { q.x = x; q.y = y; q.rot = 0; q.flip = rng() < 0.4 ? !src.flip : src.flip; out.push(q); boxes.push(box); done = true; }
     }
   }
-  return cells;
+  if (txts.length) {
+    const src = txts[(rng() * txts.length) | 0], q = capSide(withS(src, src.s * rr(0.7, 1.3)), 330);
+    q.x = 180; q.y = 180; q.rot = rr(-35, 35); q.flip = false; out.push(q);
+  }
+  return out;
 }
-function patternCard(items, scatter) {
-  const kind = pick(PATTERNS), cells = patternCells(kind), out = [], n = items.length;
-  const rowShift = kind === 'rows' ? ((rng() * n) | 0) : 0;
-  cells.forEach((cell, i) => {
-    const src = items[(kind === 'rows' ? cell.row + rowShift + (i % 1) : i + (cell.row ? cell.row : 0)) % n], q = withS(src, 1);
-    const [w1, h1] = fitSize(q);
-    let k = Math.min(cell.cw * 0.8 / w1, cell.ch * 0.8 / h1, 4);
-    q.x = cell.cx; q.y = cell.cy; q.rot = 0; q.flip = cell.mir ? !src.flip : src.flip;
-    if (scatter) { k *= rr(0.6, 1.05); q.rot = rr(-40, 40); q.x += rr(-0.15, 0.15) * cell.cw; q.y += rr(-0.15, 0.15) * cell.ch; q.flip = rng() < 0.5; }
-    q.s = k;
+/* 2) fill: the writing repeats row after row over the whole card at random sizes; the images stay exactly as placed, on top */
+function fillCard(items) {
+  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), out = [];
+  if (txts.length) {
+    let y = -rr(0, 20), k = 0;
+    while (y < 372 && out.length < 90) {
+      const rowS = rr(0.25, 0.8), row = []; let x = -rr(0, 70), rowH = 0;
+      while (x < 372 && out.length + row.length < 90) {
+        const src = txts[k++ % txts.length], q = capSide(withS(src, src.s * rowS * rr(0.85, 1.15)), 300), [w, h] = fitSize(q);
+        q.x = x + w / 2; q.rot = 0; q.flip = false; row.push(q); rowH = Math.max(rowH, h); x += w * 0.97;
+      }
+      row.forEach(q => { q.y = y + rowH / 2; out.push(q); });
+      y += rowH * 0.92;
+    }
+  }
+  return out.concat(cloneItems(imgs));
+}
+/* 3) grid: 3x3, 4x4 or 5x5, at least two thirds of the cells filled, images and writing mixed */
+function gridCard(items) {
+  const n = pick([3, 4, 5]), total = n * n, min = Math.ceil(total * 2 / 3), count = min + ((rng() * (total - min + 1)) | 0), cw = 360 / n;
+  const cells = shuffle(Array.from({ length: total }, (_, i) => i)).slice(0, count), order = shuffle(items.slice()), out = [];
+  cells.sort((a, b) => a - b).forEach((c, i) => {
+    const src = order[i % order.length], q = withS(src, 1), [w1, h1] = fitSize(q);
+    q.s = Math.min(cw * 0.86 / w1, cw * 0.86 / h1, 8);
+    q.x = cw * ((c % n) + 0.5); q.y = cw * (((c / n) | 0) + 0.5); q.rot = 0; q.flip = src.flip;
     out.push(q);
   });
   return out;
 }
-/* 3) mix: the regular layout, but each cell has random size / direction, over a loose pile */
-function mixCard(items) {
-  const back = pileCard(items, 3).map(q => { q.s *= 0.8; return q; });
-  return back.concat(patternCard(items, true));
-}
-const threeCards = items => [pileCard(items), patternCard(items, false), mixCard(items)];
+const RTAGS = ['기본', '겹치기', '글씨 채움', '격자'];
+const threeCards = items => [overlapCard(items), fillCard(items), gridCard(items)];
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
   res = [base].concat(threeCards(stage));
