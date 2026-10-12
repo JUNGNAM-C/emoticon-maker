@@ -1125,7 +1125,10 @@ function autoStart() {
   }
   const pts = traceOuter(g, w, h).map(([x, y]) => [(x + 0.5) * gs, (y + 0.5) * gs]);
   if (pts.length < 8) { omsg('자동 윤곽을 찾지 못했습니다. 인물 둘레를 따라 점을 탭해 주세요.'); return; }
-  pushOH(); O.poly = simplifyClosed(pts, gs * 1.8); O.closed = true; omsg('자동 윤곽을 불러왔습니다. 점을 끌어서 고쳐 주세요.'); odraw();
+  /* start with about 20-30 points: widen the tolerance until the outline is that short */
+  let eps = gs * 1.8, poly = simplifyClosed(pts, eps);
+  for (let i = 0; i < 40 && poly.length > 28; i++) { eps *= 1.2; poly = simplifyClosed(pts, eps); }
+  pushOH(); O.poly = poly; O.closed = true; omsg(`자동 윤곽 ${poly.length}점을 불러왔습니다. 점을 끌어서 고치거나 선 위를 눌러 점을 더하세요.`); odraw();
 }
 function applyOutline() {
   if (O.poly.length < 3) { omsg('윤곽을 3점 이상 그려 주세요.'); return; }
