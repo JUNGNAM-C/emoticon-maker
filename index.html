@@ -468,7 +468,7 @@ input,textarea,select{font-size:16px}
 'use strict';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const MAXDIM = 1200;
+const MAXDIM = 2000;
 const st = {
   tol: 40, brush: 28, edge: 0, mode: 'tap',
   border: 7, bstyle: 'white', count: 4, exp: 720
@@ -1469,7 +1469,7 @@ async function savePng(p, thumbCanvas, quiet) {
 /* ---------- palette photos are kept automatically (browser storage) ---------- */
 const WK = { loaded: false, timer: 0 };
 async function srcBlobOf(p) {
-  if (!p.srcBlob) p.srcBlob = await canvasBlob(p.srcCanvas, p.alpha ? 'image/png' : 'image/jpeg', 0.92);
+  if (!p.srcBlob) p.srcBlob = await canvasBlob(p.srcCanvas, p.alpha ? 'image/png' : 'image/jpeg', 0.97);
   return p.srcBlob;
 }
 async function persistWork() {
@@ -1667,7 +1667,7 @@ const SS = 720;
 function photoBase(p) {
   const was = p.cutDirty, cutC = withPhoto(p, makeCut), bx = p.cutBox;
   if (!p.base || was || p.baseBox !== bx) {
-    const k = Math.min(1, 1100 / Math.max(bx.w, bx.h)), c = mkCanvas(Math.max(1, Math.round(bx.w * k)), Math.max(1, Math.round(bx.h * k)));
+    const k = Math.min(1, 1600 / Math.max(bx.w, bx.h)), c = mkCanvas(Math.max(1, Math.round(bx.w * k)), Math.max(1, Math.round(bx.h * k)));
     const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
     x.drawImage(cutC, bx.x, bx.y, bx.w, bx.h, 0, 0, c.width, c.height);
     p.base = c; p.baseBox = bx; p.baseVer = (p.baseVer || 0) + 1;
