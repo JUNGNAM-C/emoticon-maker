@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#c2c3c7">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -219,6 +219,9 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 .rcard canvas{display:block;width:100%;height:100%}
 .rcard[aria-pressed="true"]{outline:4px solid #ff004d;outline-offset:2px}
 .rcard .tag{left:4px;top:4px}
+
+html,body{touch-action:pan-x pan-y;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+input,textarea,select{font-size:16px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -2046,6 +2049,11 @@ function makeSample(o) {
   page = 0; onPage();
 })();
 
+
+/* the app screen never zooms; only the editing canvases (outline editor, 꾸미기 화면) zoom inside themselves */
+['gesturestart', 'gesturechange', 'gestureend'].forEach(n => document.addEventListener(n, e => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => { if (!(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) e.preventDefault(); });
 </script>
 <script>
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
