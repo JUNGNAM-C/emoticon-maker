@@ -1956,6 +1956,7 @@ function makeResults(keepDefault) {
   resKey = stageKey(); pickIdx = 0; resultsDirty = true;
 }
 function ensureResults() {
+  if (!stage.length) { res = []; resKey = ''; renderCards(); return; }
   if (stageKey() !== resKey || !res.length) makeResults(false);
   if (resultsDirty) renderCards();
 }
@@ -2033,10 +2034,6 @@ function makeSample(o) {
 
 /* ---------- start ---------- */
 (async function init() {
-  const words = [['오늘도 화이팅!', '400 112px "Galmuri14", sans-serif'], ['고마워요', '400 120px "얇은둥근모", sans-serif'],
-    ['수고했어요', '400 120px "GalmuriMono11", sans-serif'], ['ㅋㅋㅋ', '400 112px "Galmuri7", sans-serif']];
-  try { await Promise.all(words.map(([t, f]) => document.fonts.load(f, t))); } catch (e) { /* fallback font */ }
-  words.forEach(([t, f]) => phrases.push(makeSamplePhrase(t, f)));
   drawPad(); renderStrip(); refreshPhrases(); syncTxtUI();
   await libOpen(); renderPhLib(); try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* optional */ }
   const nrest = await workRestore();
