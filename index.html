@@ -280,6 +280,12 @@ input,textarea,select{font-size:16px}
           <button class="btn" id="padPop">마지막 빼기</button>
           <button class="btn" id="padReset">처음부터</button>
         </div>
+        <div class="row" id="fixes" role="group" aria-label="손글씨 보정"><span class="hint">보정</span>
+          <button class="chip" data-fx="0" aria-pressed="false">끔</button>
+          <button class="chip" data-fx="1" aria-pressed="false">약</button>
+          <button class="chip" data-fx="2" aria-pressed="true">보통</button>
+          <button class="chip" data-fx="3" aria-pressed="false">강</button>
+        </div>
         <canvas id="pad" class="pad" width="360" height="360" aria-label="한 글자를 쓰는 곳"></canvas>
         <button class="btn primary" id="padSave" disabled>문구 추가</button>
         <button class="btn" id="padKeep" disabled>문구 저장 (보관함)</button>
@@ -1167,8 +1173,8 @@ const RAINBOW = ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#1d2b53
 const pen = { color: '#000000', width: 8, mode: 'fixed', thick: 100 };
 let lastRnd = -1;
 let strokes = [], padDraw = null, editingId = 0, phrases = [], phid = 0, glyphs = [];
-st.ink = 'orig';
-const copyStrokes = list => list.map(s => ({ color: s.color, width: s.width, pts: s.pts.map(p => p.slice()) }));
+st.ink = 'orig'; st.fix = 2;
+const copyStrokes = list => list.map(s => ({ color: s.color, width: s.width, sharp: s.sharp, pts: s.pts.map(p => p.slice()) }));
 const copyGlyphs = list => list.map(g => (g.space ? { space: true } : { strokes: copyStrokes(g.strokes) }));
 function nextColor() {
   if (pen.mode === 'seq') return RAINBOW[glyphs.filter(g => !g.space).length % RAINBOW.length];
@@ -1197,6 +1203,7 @@ function paintStrokes(x, list, dx, dy) {
     const P = s.pts;
     if (P.length === 1) { x.beginPath(); x.arc(P[0][0] + dx, P[0][1] + dy, s.width / 2, 0, Math.PI * 2); x.fill(); return; }
     x.beginPath(); x.moveTo(P[0][0] + dx, P[0][1] + dy);
+    if (s.sharp) { for (let i = 1; i < P.length; i++) x.lineTo(P[i][0] + dx, P[i][1] + dy); x.stroke(); return; }
     for (let i = 1; i < P.length - 1; i++) {
       const mx = (P[i][0] + P[i + 1][0]) / 2 + dx, my = (P[i][1] + P[i + 1][1]) / 2 + dy;
       x.quadraticCurveTo(P[i][0] + dx, P[i][1] + dy, mx, my);
@@ -1207,6 +1214,8 @@ function paintStrokes(x, list, dx, dy) {
 }
 function drawPad() {
   pctx.clearRect(0, 0, pad.width, pad.height);
+  pctx.fillStyle = 'rgba(95,87,79,.6)';
+  for (let gy = 15; gy < pad.height; gy += 15) for (let gx = 15; gx < pad.width; gx += 15) pctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
   pctx.strokeStyle = '#5f574f'; pctx.lineWidth = 2; pctx.setLineDash([10, 10]);
   pctx.beginPath(); pctx.moveTo(16, pad.height * 0.72); pctx.lineTo(pad.width - 16, pad.height * 0.72); pctx.stroke();
   pctx.setLineDash([]);
@@ -1228,7 +1237,28 @@ pad.addEventListener('pointermove', e => {
   const p = ppos(e), l = padDraw.pts[padDraw.pts.length - 1];
   if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 1.5) { padDraw.pts.push(p); drawPad(); }
 });
-function padEnd() { if (padDraw) { strokes.push(padDraw); padDraw = null; drawPad(); } }
+/* 보정: drop tiny wobbles (Douglas-Peucker), turn near-straight strokes into one long line, snap near-horizontal/vertical segments */
+const FIX = [null, { eps: 5, snap: 6 }, { eps: 9, snap: 9 }, { eps: 15, snap: 12 }];
+function tidyStroke(s) {
+  const F = FIX[st.fix]; if (!F) return s;
+  const P = s.pts; let len = 0;
+  for (let i = 1; i < P.length; i++) len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+  if (P.length < 2 || len < 8) return s;                       /* a dot stays a dot */
+  let Q = dp(P.map(p => p.slice()), F.eps);
+  const a = Q[0], b = Q[Q.length - 1], cl = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (cl > 1 && Q.length > 2) {                                 /* wobbly but basically straight → one line */
+    let md = 0;
+    for (const p of P) md = Math.max(md, Math.abs((p[0] - a[0]) * (b[1] - a[1]) - (p[1] - a[1]) * (b[0] - a[0])) / cl);
+    if (md < F.eps * 1.6 && cl > len * 0.85) Q = [a, b];
+  }
+  for (let i = 1; i < Q.length; i++) {                          /* axis snap, carried on to the next point */
+    const dx = Q[i][0] - Q[i - 1][0], dy = Q[i][1] - Q[i - 1][1], ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+    if (ang < F.snap || ang > 180 - F.snap) Q[i][1] = Q[i - 1][1];
+    else if (Math.abs(ang - 90) < F.snap) Q[i][0] = Q[i - 1][0];
+  }
+  return { color: s.color, width: s.width, sharp: true, pts: Q };
+}
+function padEnd() { if (padDraw) { strokes.push(tidyStroke(padDraw)); padDraw = null; drawPad(); } }
 pad.addEventListener('pointerup', padEnd);
 pad.addEventListener('pointercancel', padEnd);
 
@@ -1339,6 +1369,7 @@ $('#padSpace').addEventListener('click', () => {
   if (glyphs.length && !glyphs[glyphs.length - 1].space) { glyphs.push({ space: true }); renderStrip(); }
 });
 $('#padPop').addEventListener('click', () => { glyphs.pop(); renderStrip(); });
+bindChips('#fixes', 'data-fx', v => { st.fix = +v; });
 $('#padUndo').addEventListener('click', () => { strokes.pop(); drawPad(); });
 $('#padClear').addEventListener('click', () => { strokes = []; padDraw = null; drawPad(); });
 $('#padReset').addEventListener('click', resetPad);
