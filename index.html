@@ -369,6 +369,12 @@ input,textarea,select{font-size:16px}
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 팔레트의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
         <p class="hint" id="cardInfo" aria-live="polite"></p>
+        <p class="hint">저장·복사·공유 크기 (화면에 보이는 카드와 별개로 이 크기로 새로 그려서 내보냅니다)</p>
+        <div class="row" id="exps" role="group" aria-label="내보내기 크기">
+          <button class="chip" data-ex="360" aria-pressed="false">360px<small>카카오 규격</small></button>
+          <button class="chip" data-ex="720" aria-pressed="true">720px<small>선명</small></button>
+          <button class="chip" data-ex="1080" aria-pressed="false">1080px<small>가장 선명</small></button>
+        </div>
         <div class="btnrow">
           <button class="btn primary" id="shareCard">카카오톡 공유</button>
           <button class="btn" id="saveCard">저장</button>
@@ -462,10 +468,10 @@ input,textarea,select{font-size:16px}
 'use strict';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const MAXDIM = 720;
+const MAXDIM = 1200;
 const st = {
   tol: 40, brush: 28, edge: 0, mode: 'tap',
-  border: 7, bstyle: 'white', count: 4
+  border: 7, bstyle: 'white', count: 4, exp: 720
 };
 let photos = [], pid = 0, editorOpen = false;
 /* the "bound" photo: its fields live in these globals while it is being worked on */
@@ -1235,7 +1241,7 @@ function glyphBox(g, k) {
   }));
   return [x0, y0, x1, y1];
 }
-function composeGlyphs(list, k) {
+function composeGlyphs(list, k, Q = 1) {
   const GAP = 10, SPACE = 70, M = 4;
   const real = list.filter(g => !g.space);
   if (!real.length) return null;
@@ -1250,7 +1256,9 @@ function composeGlyphs(list, k) {
     place.push([g, cur - b[0]]);
     cur += (b[2] - b[0]); lastEnd = cur; cur += GAP;
   });
-  const c = mkCanvas(Math.max(1, Math.ceil(lastEnd + M)), Math.max(1, Math.ceil(y1 - y0) + 2 * M)), x = c.getContext('2d');
+  const cw = Math.max(1, Math.ceil(lastEnd + M)), chh = Math.max(1, Math.ceil(y1 - y0) + 2 * M);
+  const c = mkCanvas(Math.ceil(cw * Q), Math.ceil(chh * Q)), x = c.getContext('2d');
+  x.scale(Q, Q);
   place.forEach(([g, dx]) => paintStrokes(x, g.strokes.map(s => ({ color: s.color, width: s.width * k, pts: s.pts })), dx, M - y0));
   return c;
 }
@@ -1267,7 +1275,7 @@ function renderStrip() {
 }
 function syncSave() { const d = !(glyphs.some(g => !g.space) || strokes.length); $('#padSave').disabled = d; $('#padKeep').disabled = d; }
 function makePhrase(list, thick) {
-  const k = thick / 100, col = composeGlyphs(list, k);
+  const k = thick / 100, col = composeGlyphs(list, k, 3);   /* drawn 3x so it stays sharp in big exports */
   const all = list.filter(g => !g.space).flatMap(g => g.strokes);
   const lum = all.reduce((a, s) => a + lumHex(s.color), 0) / all.length;
   const avgW = all.reduce((a, s) => a + s.width * k, 0) / all.length;
@@ -1659,7 +1667,7 @@ const SS = 720;
 function photoBase(p) {
   const was = p.cutDirty, cutC = withPhoto(p, makeCut), bx = p.cutBox;
   if (!p.base || was || p.baseBox !== bx) {
-    const k = Math.min(1, 520 / Math.max(bx.w, bx.h)), c = mkCanvas(Math.max(1, Math.round(bx.w * k)), Math.max(1, Math.round(bx.h * k)));
+    const k = Math.min(1, 1100 / Math.max(bx.w, bx.h)), c = mkCanvas(Math.max(1, Math.round(bx.w * k)), Math.max(1, Math.round(bx.h * k)));
     const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
     x.drawImage(cutC, bx.x, bx.y, bx.w, bx.h, 0, 0, c.width, c.height);
     p.base = c; p.baseBox = bx; p.baseVer = (p.baseVer || 0) + 1;
@@ -1669,10 +1677,10 @@ function photoBase(p) {
 function textBase(it) {
   const key = it.text + '|' + it.font + '|' + it.color;
   if (it._tb && it._tbk === key) return it._tb;
-  const font = `400 120px ${FONTS[it.font] || FONTS.thin}, sans-serif`, m = mkCanvas(10, 10).getContext('2d');
+  const font = `400 300px ${FONTS[it.font] || FONTS.thin}, sans-serif`, m = mkCanvas(10, 10).getContext('2d');
   m.font = font;
-  const w = Math.max(20, Math.ceil(m.measureText(it.text).width) + 16), c = mkCanvas(w, 170), x = c.getContext('2d');
-  x.font = font; x.textBaseline = 'middle'; x.fillStyle = it.color; x.fillText(it.text, 8, 85);
+  const w = Math.max(40, Math.ceil(m.measureText(it.text).width) + 40), c = mkCanvas(w, 425), x = c.getContext('2d');
+  x.font = font; x.textBaseline = 'middle'; x.fillStyle = it.color; x.fillText(it.text, 20, 212);
   it._tb = c; it._tbk = key; it._tbv = (it._tbv || 0) + 1;
   return c;
 }
@@ -1984,7 +1992,8 @@ $('#shuffle').addEventListener('click', () => {
   if (stageKey() !== resKey) makeResults(false); else { const b = res[0]; res = [b].concat(threeCards(stage)); resultsDirty = true; }
   renderCards(); toast('랜덤 3장을 새로 만들었습니다.');
 });
-const curCanvas = () => $$('.rcard canvas', $('#rgrid'))[pickIdx];
+const curCanvas = () => (res[pickIdx] ? drawCard(res[pickIdx], st.exp) : null);   /* saved / copied / shared at the chosen size */
+bindChips('#exps', 'data-ex', v => { st.exp = +v; toast(`내보내기 크기 ${v}×${v}px`); });
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
