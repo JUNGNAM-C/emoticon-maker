@@ -1,0 +1,17 @@
+{
+  "name": "이모티콘 메이커",
+  "short_name": "이모티콘",
+  "description": "사진 속 인물을 오리고 손글씨를 더해 이모티콘을 만듭니다.",
+  "lang": "ko",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#c2c3c7",
+  "theme_color": "#c2c3c7",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
