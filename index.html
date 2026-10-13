@@ -393,7 +393,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 단색 팝아트풍(몇 가지 색의 평평한 면)으로 바꾼 뒤 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 만화풍(윤곽선·단순한 색 면)으로 바꾼 뒤 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1911,7 +1911,7 @@ function pixelate(src, o) {
   return out;
 }
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
-const CARTOON = { sigma: 34, levels: 6, sat: 1.25, edge: 70, line: [20, 16, 40] };
+const CARTOON = { sigma: 34, levels: 6, sat: 1.25, edge: 100, line: [20, 16, 40] };
 function cartoonize(src, B) {                          /* B = outline thickness in px (one dot after pixelation) */
   const S = src.width, ctx = src.getContext('2d', { willReadFrequently: true }), img = ctx.getImageData(0, 0, S, S), d = img.data, N = S * S;
   const R = 1, lut = new Float32Array(766);
@@ -2083,16 +2083,19 @@ function inkFace(l, lm, W, H) {                       /* comic ink lines over th
   [[33, 133, [246, 161, 160, 159, 158, 157, 173], 159, 145], [362, 263, [466, 388, 387, 386, 385, 384, 398], 386, 374]].forEach(([c1, c2, up, u, lo]) => {
     const a = P(c1), b = P(c2), ew = dist(a, b), cu = P(u), cl = P(lo), m = [(cu[0] + cl[0]) / 2, (cu[1] + cl[1]) / 2], open = dist(cu, cl) / ew;
     if (open > 0.1) {
-      const r = Math.min(ew * 0.2, dist(cu, cl) * 0.55);                              /* iris + highlight */
-      l.fillStyle = 'rgba(30,18,22,0.92)'; l.beginPath(); l.arc(m[0], m[1], r, 0, 7); l.fill();
-      l.fillStyle = 'rgba(255,255,255,0.9)'; l.beginPath(); l.arc(m[0] - r * 0.3, m[1] - r * 0.35, r * 0.32, 0, 7); l.fill();
+      const r = ew * 0.26;                                                              /* big iris, dark pupil, two highlights */
+      l.fillStyle = '#5a3228'; l.beginPath(); l.arc(m[0], m[1], r, 0, 7); l.fill();
+      l.fillStyle = '#12060a'; l.beginPath(); l.arc(m[0], m[1], r * 0.58, 0, 7); l.fill();
+      l.lineWidth = Math.max(1.5, r * 0.18); l.strokeStyle = '#12060a'; l.beginPath(); l.arc(m[0], m[1], r, 0, 7); l.stroke();
+      l.fillStyle = '#fff'; l.beginPath(); l.arc(m[0] - r * 0.32, m[1] - r * 0.36, r * 0.34, 0, 7); l.fill();
+      l.beginPath(); l.arc(m[0] + r * 0.36, m[1] + r * 0.34, r * 0.16, 0, 7); l.fill();
     }
-    line([c1].concat(up, [c2]), Math.max(1.5, ew * 0.13), '#1b1220');                  /* upper lid */
+    line([c1].concat(up, [c2]), Math.max(2, ew * 0.11), '#1b1220');                  /* upper lid */
   });
   line([70, 63, 105, 66, 107], fw * 0.035, '#2a1c18'); line([300, 293, 334, 296, 336], fw * 0.035, '#2a1c18');
   const mw = dist(P(61), P(291));
-  line([61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291], mw * 0.07, '#7a2434');        /* mouth */
-  line([78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308], mw * 0.05, '#7a2434');
+  line([61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291], mw * 0.045, '#7a2434');        /* mouth */
+  line([78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308], mw * 0.03, '#7a2434');
   l.fillStyle = 'rgba(70,35,30,0.8)'; [98, 327].forEach(i => { const p = P(i); l.beginPath(); l.arc(p[0], p[1], fw * 0.014, 0, 7); l.fill(); });
 }
 async function animeUpgrade(p, lms, ver) {              /* runs after the quick landmark version is already on screen */
@@ -2129,91 +2132,13 @@ async function ensureFaces() {                        /* detect once per cut-out
   }
   return changed;
 }
-/* flat pop-art look: few flat colour areas (k-means), tiny islands merged, only the silhouette gets a line */
-const POP = { k: 10, sat: 1.5, con: 1.15, passes: 1, R: 2, sigma: 30, line: [20, 16, 40] };
-function popize(src, B) {
-  const W = 360, S = src.width, w0 = mkCanvas(W, W), wx = w0.getContext('2d', { willReadFrequently: true });
-  wx.imageSmoothingQuality = 'high'; wx.drawImage(src, 0, 0, W, W);
-  const d = wx.getImageData(0, 0, W, W).data, N = W * W, R = POP.R, lut = new Float32Array(766);
-  for (let i = 0; i < 766; i++) lut[i] = Math.exp(-(i * i) / (2 * POP.sigma * POP.sigma * 3));
-  const sp = []; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) sp.push([dx, dy, Math.exp(-(dx * dx + dy * dy) / (2 * (R * 0.8 + 0.4) ** 2))]);
-  let a = new Uint8ClampedArray(d), bb = new Uint8ClampedArray(d.length);
-  for (let pass = 0; pass < POP.passes; pass++) {      /* smooth hard so areas merge */
-    bb.set(a);
-    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4; if (a[i + 3] < 128) continue;
-      let sr = 0, sg = 0, sb = 0, sw = 0; const r0 = a[i], g0 = a[i + 1], b0 = a[i + 2];
-      for (const [dx, dy, wt] of sp) {
-        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= W) continue;
-        const j = (yy * W + xx) * 4; if (a[j + 3] < 128) continue;
-        const w = wt * lut[Math.abs(a[j] - r0) + Math.abs(a[j + 1] - g0) + Math.abs(a[j + 2] - b0)];
-        sr += a[j] * w; sg += a[j + 1] * w; sb += a[j + 2] * w; sw += w;
-      }
-      bb[i] = sr / sw; bb[i + 1] = sg / sw; bb[i + 2] = sb / sw;
-    }
-    const t = a; a = bb; bb = t;
-  }
-  const px = []; for (let p = 0; p < N; p += 3) if (a[p * 4 + 3] >= 128) px.push(p);
-  const out = mkCanvas(S, S);
-  if (px.length < 10) return out;
-  const lumOf = p => 0.299 * a[p * 4] + 0.587 * a[p * 4 + 1] + 0.114 * a[p * 4 + 2];
-  px.sort((p, q) => lumOf(p) - lumOf(q));
-  const K = Math.min(POP.k, px.length), cen = [];
-  const samp = px.filter((_, i) => i % Math.max(1, Math.floor(px.length / 1500)) === 0), md = samp.map(() => 1e9);
-  { const p = px[px.length >> 1]; cen.push([a[p * 4], a[p * 4 + 1], a[p * 4 + 2]]); }
-  while (cen.length < K) {                             /* spread the starting colours far apart so blues, whites and darks all get a slot */
-    const c0 = cen[cen.length - 1]; let bi = 0, bd = -1;
-    samp.forEach((p, i) => { const e = (a[p * 4] - c0[0]) ** 2 + (a[p * 4 + 1] - c0[1]) ** 2 + (a[p * 4 + 2] - c0[2]) ** 2; if (e < md[i]) md[i] = e; if (md[i] > bd) { bd = md[i]; bi = i; } });
-    const p = samp[bi]; cen.push([a[p * 4], a[p * 4 + 1], a[p * 4 + 2]]);
-  }
-  const near = (r, g, b) => { let bi = 0, bd = 1e9; for (let c = 0; c < cen.length; c++) { const e = (r - cen[c][0]) ** 2 + (g - cen[c][1]) ** 2 + (b - cen[c][2]) ** 2; if (e < bd) { bd = e; bi = c; } } return bi; };
-  for (let it = 0; it < 8; it++) {                     /* k-means on the smoothed colours */
-    const sum = cen.map(() => [0, 0, 0, 0]);
-    px.forEach(p => { const c = near(a[p * 4], a[p * 4 + 1], a[p * 4 + 2]), q = sum[c]; q[0] += a[p * 4]; q[1] += a[p * 4 + 1]; q[2] += a[p * 4 + 2]; q[3]++; });
-    sum.forEach((q, c) => { if (q[3]) cen[c] = [q[0] / q[3], q[1] / q[3], q[2] / q[3]]; });
-  }
-  cen.forEach(c => {                                   /* punchier colours */
-    const g = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
-    for (let k = 0; k < 3; k++) c[k] = Math.max(0, Math.min(255, 128 + (g + (c[k] - g) * POP.sat - 128) * POP.con));
-  });
-  let lab = new Int16Array(N).fill(-1), lb2 = new Int16Array(N);
-  for (let p = 0; p < N; p++) if (a[p * 4 + 3] >= 128) lab[p] = near(a[p * 4], a[p * 4 + 1], a[p * 4 + 2]);
-  for (let it = 0; it < 1; it++) {                     /* majority filter: remove tiny islands */
-    lb2.set(lab);
-    for (let y = 1; y < W - 1; y++) for (let x = 1; x < W - 1; x++) {
-      const p = y * W + x; if (lab[p] < 0) continue;
-      const cnt = {}; let best = lab[p], bn = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const l = lab[p + dy * W + dx]; if (l < 0) continue; const n = (cnt[l] = (cnt[l] || 0) + 1); if (n > bn) { bn = n; best = l; } }
-      if (bn >= 5) lb2[p] = best;
-    }
-    const t = lab; lab = lb2; lb2 = t;
-  }
-  const edge = new Uint8Array(N);
-  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {   /* silhouette only */
-    const p = y * W + x; if (lab[p] < 0) continue;
-    if (x === 0 || y === 0 || x === W - 1 || y === W - 1 || lab[p - 1] < 0 || lab[p + 1] < 0 || lab[p - W] < 0 || lab[p + W] < 0) edge[p] = 1;
-  }
-  const bw = Math.max(1, Math.round(PX_FIX.dot)), rad = Math.floor((bw - 1) / 2), e2 = new Uint8Array(N), t2 = new Uint8Array(N);
-  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const xx = x + k; if (xx >= 0 && xx < W && edge[y * W + xx]) m = 1; } t2[y * W + x] = m; }
-  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const yy = y + k; if (yy >= 0 && yy < W && t2[yy * W + x]) m = 1; } e2[y * W + x] = m; }
-  const o = new ImageData(W, W), od = o.data;
-  for (let p = 0; p < N; p++) {
-    if (lab[p] < 0) continue; const i = p * 4;
-    if (e2[p]) { od[i] = POP.line[0]; od[i + 1] = POP.line[1]; od[i + 2] = POP.line[2]; }
-    else { const c = cen[lab[p]]; od[i] = c[0]; od[i + 1] = c[1]; od[i + 2] = c[2]; }
-    od[i + 3] = 255;
-  }
-  const o2 = mkCanvas(W, W); o2.getContext('2d').putImageData(o, 0, 0);
-  const ox = out.getContext('2d'); ox.imageSmoothingEnabled = false; ox.drawImage(o2, 0, 0, S, S);
-  return out;
-}
-/* card 1 only: pop-art first, then pixel art with fixed values */
+/* card 1 only: cartoon first, then pixel art with fixed values */
 const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };   /* card 1 only, fixed */
 function cardCanvas(i, S) {
   if (i !== 1) return drawCard(res[i], S);
   const B = Math.max(1, Math.round(PX_FIX.dot * S / 360)), runs = [], out = mkCanvas(S, S), x = out.getContext('2d');
   res[i].map(it => (isImg(it) && it.src.chr ? Object.assign({}, it, { char: true, _bm: null, _bmk: null }) : it)).forEach(it => { const k = isImg(it); if (runs.length && runs[runs.length - 1].k === k) runs[runs.length - 1].list.push(it); else runs.push({ k, list: [it] }); });
-  runs.forEach(r => { const c = drawCard(r.list, S); x.drawImage(r.k ? popize(c, B) : c, 0, 0); });   /* only images get the cartoon look; writing stays clean */
+  runs.forEach(r => { const c = drawCard(r.list, S); x.drawImage(r.k ? cartoonize(c, B) : c, 0, 0); });   /* only images get the cartoon look; writing stays clean */
   return pixelate(out, PX_FIX);
 }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
@@ -2495,7 +2420,7 @@ function chainCard(items) {
   }
   return out;
 }
-const RTAGS = ['기본', '팝아트+픽셀', '이미지 랜덤', '글씨 연결'];
+const RTAGS = ['기본', '만화+픽셀', '이미지 랜덤', '글씨 연결'];
 const threeCards = items => [cloneItems(items), overlapCard(items), chainCard(items)];   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
@@ -2524,7 +2449,7 @@ function renderCards() {
   ['shareCard', 'saveCard', 'copyCard'].forEach(id => { $('#' + id).disabled = false; });
   updateInfo();
 }
-function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 단색 팝아트 변환 후 픽셀아트(점 크기 4, 색 64개, 채도 100%).' : ''}` : ''; }
+function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 만화 변환 후 픽셀아트(점 크기 4, 색 64개, 채도 100%).' : ''}` : ''; }
 $('#shuffle').addEventListener('click', () => {
   if (!stage.length) { renderCards(); return; }
   if (stageKey() !== resKey) makeResults(false); else { const b = res[0]; res = [b].concat(threeCards(stage)); resultsDirty = true; }
