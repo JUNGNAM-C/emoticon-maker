@@ -2216,7 +2216,7 @@ function overlapArea(subj, clip) {                       /* Sutherland-Hodgman: 
   }
   return Math.abs(polyArea(out));
 }
-const R2 = { nMin: 2, nMax: 5, kMin: 0.1, kMax: 2, grid: 6, tries: 120, shrinkEvery: 30, shrink: 0.8, flipP: 0.4, tolerance: 0.01, tKMin: 1, tKMax: 2, tRot: 180 };
+const R2 = { nMin: 3, nMax: 7, kMin: 0.1, kMax: 2, grid: 6, tries: 120, shrinkEvery: 30, shrink: 0.8, flipP: 0.4, tolerance: 0.01, tKMin: 0.6, tKMax: 1.2, tRot: 180 };
 function overlapCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), pool = imgs.length ? imgs : items, out = [], polys = [];
   const n = R2.nMin + ((rng() * (R2.nMax - R2.nMin + 1)) | 0), G = R2.grid, cs = 360 / G, pad = 2 * st.border;
@@ -2249,7 +2249,7 @@ function overlapCard(items) {
   return out;
 }
 /* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
-const R3 = { hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 1080, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const R3 = { hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
 function chainCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
   const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
