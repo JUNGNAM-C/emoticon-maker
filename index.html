@@ -2214,15 +2214,16 @@ const isImg = it => it.type === 'photo' || it.type === 'shape';
 const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
 /* 1) grid: the card is cut into N x N cells (N = 2..5); every cell gets a random object, longest side 0.5-0.9 of the cell (never past it). Writing keeps its direction; images may mirror horizontally / vertically.
       Borderless objects are the decoration: 2-10 small ones in a row along one inner grid line (dotted-line look), drawn behind everything. */
-const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.15, decorKMax: 0.3, decorFill: 0.8 };
+const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.3, decorKMax: 0.45, decorFill: 0.7 };
 function overlapCard(items) {
   const pool = items.filter(it => !isFixed(it)), decor = items.filter(isFixed), out = [];
   const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N;
   if (decor.length) {                                       /* dotted line of decoration along an inner grid line */
     const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M, vert = rng() < 0.5;
     const line = (1 + ((rng() * (N - 1)) | 0)) * cs, size = Math.min(cs * rr(R2.decorKMin, R2.decorKMax), step * R2.decorFill);
+    const dot = decor[(rng() * decor.length) | 0];           /* one decoration object repeated: reads as a dotted line */
     for (let j = 0; j < M; j++) {
-      const src = decor[(rng() * decor.length) | 0], q = withS(src, 1), m = Math.max(...fitSize(q));
+      const src = dot, q = withS(src, 1), m = Math.max(...fitSize(q));
       q.s = size / m; q.rot = 0; q.flip = false;
       q.x = vert ? line : (j + 0.5) * step; q.y = vert ? (j + 0.5) * step : line;
       out.push(q);
