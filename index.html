@@ -2122,11 +2122,11 @@ async function ensureFaces() {                        /* detect once per cut-out
     p.fv = p.baseVer; p.chr = null;
     let lms = []; try { lms = await detectFaces(base); } catch (e) { lms = []; }
     if (lms.length) {
-      p.chr = drawCharacter(base, lms); changed = true;
-      const ver = p.baseVer;
+      const ver = p.baseVer;                         /* no quick intermediate face: wait for the AI one (the simple redraw is only a fallback) */
       ANIME.q = ANIME.q.then(async () => {            /* then upgrade to the AI face, one at a time */
         toast('AI가 얼굴을 만화로 그리는 중입니다. 몇 초 걸립니다…');
         let ok = false; try { ok = await animeUpgrade(p, lms, ver); } catch (e) { ok = false; }
+        if (!ok && p.fv === ver) { try { p.chr = drawCharacter(base, lms); ok = true; } catch (e) { ok = false; } }
         if (ok && res.length) renderCards();
         toast(ok ? 'AI 얼굴 변환을 마쳤습니다. 랜덤1을 확인해 주세요.' : '');
       });
