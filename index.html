@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
           <button class="chip" data-pp="autumn" aria-pressed="false">가을</button>
           <button class="chip" data-pp="ocean" aria-pressed="false">바다</button>
         </div>
-        <p class="hint">기본 카드에는 적용하지 않습니다. 랜덤 카드는 채도를 위 값(기본 100%)으로 고정하고, 랜덤1은 점 크기·색 수를 위 값과 자동 추출 팔레트로, 랜덤2는 점 크기를 무작위로, 랜덤3은 색 수와 팔레트를 무작위로 바꿉니다.</p>
+        <p class="hint">기본 카드에는 적용하지 않습니다. 랜덤 카드는 채도를 위 값(기본 100%)으로 고정하고, 랜덤1은 점 크기·색 수·팔레트를 위에서 정한 값(팔레트 기본은 자동 추출)으로, 랜덤2는 점 크기만 무작위로, 랜덤3은 색 수와 팔레트를 무작위로 바꿉니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1926,8 +1926,8 @@ function pixelate(src, o) {
 let resFx = [];
 const newFx = () => [
   { dot: 'u', cnt: 'u', pal: 'u' },
-  { dot: 'u', cnt: 'u', pal: 'auto' },
-  { dot: [4, 6, 8, 10, 12, 14, 16][Math.floor(rng() * 7)], cnt: 'u', pal: 'auto' },
+  { dot: 'u', cnt: 'u', pal: 'u' },
+  { dot: [4, 6, 8, 10, 12, 14, 16][Math.floor(rng() * 7)], cnt: 'u', pal: 'u' },
   { dot: 'u', cnt: 4 + Math.floor(rng() * 29), pal: ['auto', 'gb', 'nes', 'pastel', 'neon', 'autumn', 'ocean'][Math.floor(rng() * 7)] }
 ];
 const fxOf = i => { const f = resFx[i] || { dot: 'u', cnt: 'u', pal: 'u' }; return { dot: f.dot === 'u' ? st.pdot : f.dot, cnt: f.cnt === 'u' ? st.pcol : f.cnt, pal: f.pal === 'u' ? st.ppal : f.pal, sat: st.psat }; };
