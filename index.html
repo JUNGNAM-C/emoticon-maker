@@ -2256,13 +2256,14 @@ function chainCard(items) {
   if (txts.length) {
     let H = R3.hStart, rows = [], totalH = 0;
     let gap = R3.gap;
-    if (R3.repeat) {                                    /* repeat the writing (random order, cycling); random row count, random width per row */
+    if (R3.repeat) {                                    /* repeat the writing (random order, cycling); random row count, one shared row width that depends on the row count */
       const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0);
       H = Math.min(R3.hStart, Math.floor(R3.maxH / nRows) - gap);
       if (H < R3.hMin) { H = R3.hMin; gap = Math.max(0, R3.maxH / nRows - H); }   /* many rows: shrink the writing, then the line gap, to stay inside the height */
+      const lim = R3.rowWMax - (R3.rowWMax - R3.rowWMin) * (nRows - R3.rowsMin) / Math.max(1, R3.rowsMax - R3.rowsMin);   /* one width for every row: widest at the fewest rows, narrowest at the most */
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
-        const row = [], lim = rr(R3.rowWMin, R3.rowWMax); let rw = 0;
+        const row = []; let rw = 0;
         for (let g = 0; g < 400; g++) {
           const t = txts[idx % txts.length], w = w1(t) * H / h1(t);
           if (row.length && rw + w > lim) break;
