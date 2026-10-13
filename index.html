@@ -392,7 +392,7 @@ input,textarea,select{font-size:16px}
       <div class="card stack">
         <h2>결과</h2>
         <p class="hint">첫 카드는 꾸미기에서 올린 그대로(기본)입니다. 랜덤1은 이미지를 크기 제각각으로 서로 절반 넘게 가리지 않게 겹치고 글씨는 맨 위 가운데에 한 번, 랜덤2는 글씨를 크기를 달리해 카드 가득 반복하고 그 위에 이미지를 올려 둔 그대로, 랜덤3은 3×3·4×4·5×5 격자에 이미지와 글씨를 칸의 3분의 2 이상 채워 가지런히 놓은 카드입니다.</p>
-        <h3 class="sub">픽셀아트 효과 (모든 카드에 적용)</h3>
+        <h3 class="sub">픽셀아트 효과 (랜덤 카드 3장에 적용)</h3>
         <label class="rng line"><span>픽셀아트</span><input type="range" id="pxOn" min="0" max="1" step="1" value="1"><output></output></label>
         <label class="rng line"><span>점 크기</span><input type="range" id="pxDot" min="2" max="32" step="2" value="6"><output></output></label>
         <label class="rng line"><span>색 수</span><input type="range" id="pxCol" min="2" max="64" step="1" value="16"><output></output></label>
@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
           <button class="chip" data-pp="autumn" aria-pressed="false">가을</button>
           <button class="chip" data-pp="ocean" aria-pressed="false">바다</button>
         </div>
-        <p class="hint">기본 카드는 위에서 정한 값으로 만들어집니다. 랜덤 카드는 채도를 위 값으로 고정하고, 랜덤1은 점 크기·색 수·팔레트를 위 값(팔레트는 자동 추출)으로, 랜덤2는 점 크기를 무작위로, 랜덤3은 색 수와 팔레트를 무작위로 바꿉니다.</p>
+        <p class="hint">기본 카드에는 적용하지 않습니다. 랜덤 카드는 채도를 위 값(기본 100%)으로 고정하고, 랜덤1은 점 크기·색 수를 위 값과 자동 추출 팔레트로, 랜덤2는 점 크기를 무작위로, 랜덤3은 색 수와 팔레트를 무작위로 바꿉니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1931,7 +1931,7 @@ const newFx = () => [
   { dot: 'u', cnt: 4 + Math.floor(rng() * 29), pal: ['auto', 'gb', 'nes', 'pastel', 'neon', 'autumn', 'ocean'][Math.floor(rng() * 7)] }
 ];
 const fxOf = i => { const f = resFx[i] || { dot: 'u', cnt: 'u', pal: 'u' }; return { dot: f.dot === 'u' ? st.pdot : f.dot, cnt: f.cnt === 'u' ? st.pcol : f.cnt, pal: f.pal === 'u' ? st.ppal : f.pal, sat: st.psat }; };
-function cardCanvas(i, S) { const c = drawCard(res[i], S); return st.pix ? pixelate(c, fxOf(i)) : c; }
+function cardCanvas(i, S) { const c = drawCard(res[i], S); return st.pix && i ? pixelate(c, fxOf(i)) : c; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
 function clampView() {
@@ -2246,7 +2246,7 @@ function renderCards() {
   updateInfo();
 }
 function updateInfo() {
-  const o = fxOf(pickIdx), fx = st.pix ? ` 점 크기 ${o.dot}, ${o.pal === 'auto' ? '색 ' + o.cnt + '개 자동 추출' : PAL_NAMES[o.pal] + ' 팔레트'}, 채도 ${o.sat}.` : '';
+  const o = fxOf(pickIdx), fx = st.pix && pickIdx ? ` 점 크기 ${o.dot}, ${o.pal === 'auto' ? '색 ' + o.cnt + '개 자동 추출' : PAL_NAMES[o.pal] + ' 팔레트'}, 채도 ${o.sat}.` : '';
   $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${fx}` : '';
 }
 const pxRedo = () => { if (stage.length && res.length) { resultsDirty = true; renderCards(); } };
