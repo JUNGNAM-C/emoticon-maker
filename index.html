@@ -215,6 +215,9 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 .fold h2{margin:0}
 .tri{display:inline-grid;place-items:center;width:28px;height:28px;border:2px solid #000;background:#ffec27;font-size:14px;line-height:1;box-shadow:2px 2px 0 #000;transition:transform .15s}
 .fold[aria-expanded="false"] .tri{transform:rotate(-90deg)}
+.fold + .stack{margin-top:0}
+#txtColors .sq{aspect-ratio:auto;height:44px}
+#txtFonts .chip{height:44px;padding-top:0;padding-bottom:0;display:flex;align-items:center}
 .zrow{display:flex;gap:8px;align-items:flex-start;width:100%;max-width:500px;margin-inline:auto}
 .zbtns{flex:none;width:46px;display:flex;flex-direction:column;gap:8px}
 .zbtns .btn{width:100%;padding:12px 0;font-size:12px;text-align:center}
@@ -318,7 +321,7 @@ input,textarea,select{font-size:16px}
 
     <section class="panel" id="p2" aria-label="3단계 꾸미기">
       <div class="card stack" id="palCard">
-        <button class="fold" id="palFold" aria-expanded="true" aria-controls="palBody"><span class="tri" aria-hidden="true">▼</span><h2>팔레트 (보관함)</h2></button>
+        <button class="fold" id="palFold" aria-expanded="true" aria-controls="palBody"><span class="tri" aria-hidden="true">▼</span><h2>보관함</h2></button>
         <div id="palBody" class="stack">
           <h3 class="sub">보관함 이미지</h3>
           <div class="pal" id="palLibImgs"></div>
@@ -327,9 +330,24 @@ input,textarea,select{font-size:16px}
           <p class="hint">보관함에 저장한 이미지와 손글씨만 가져올 수 있습니다. 1단계의 ‘이미지 저장’, 2단계의 ‘보관’ 또는 ‘문구 저장’으로 담아 두세요.</p>
         </div>
       </div>
+      <div class="card stack" id="txtCard">
+        <button class="fold" id="txtFold" aria-expanded="false" aria-controls="txtBody"><span class="tri" aria-hidden="true">▼</span><h2>글씨 입력</h2></button>
+        <div id="txtBody" class="stack" hidden>
+          <input type="text" id="txtIn" maxlength="30" placeholder="쓸 말을 입력하세요" autocomplete="off">
+          <div class="sqrow" id="txtColors" role="group" aria-label="글씨 색"><button class="sq" data-tc="#ff004d" aria-label="빨강" title="빨강" aria-pressed="false" style="background:#ff004d"></button><button class="sq" data-tc="#ffa300" aria-label="주황" title="주황" aria-pressed="false" style="background:#ffa300"></button><button class="sq" data-tc="#ffec27" aria-label="노랑" title="노랑" aria-pressed="false" style="background:#ffec27"></button><button class="sq" data-tc="#00e436" aria-label="초록" title="초록" aria-pressed="false" style="background:#00e436"></button><button class="sq" data-tc="#29adff" aria-label="파랑" title="파랑" aria-pressed="false" style="background:#29adff"></button><button class="sq" data-tc="#1d2b53" aria-label="남색" title="남색" aria-pressed="false" style="background:#1d2b53"></button><button class="sq" data-tc="#9b4fd6" aria-label="보라" title="보라" aria-pressed="false" style="background:#9b4fd6"></button><button class="sq" data-tc="#fff1e8" aria-label="흰색" title="흰색" aria-pressed="false" style="background:#fff1e8"></button><button class="sq" data-tc="#000000" aria-label="검정" title="검정" aria-pressed="true" style="background:#000000"></button></div>
+          <div class="row" id="txtFonts" role="group" aria-label="글꼴">
+            <button class="chip" data-tf="thin" aria-pressed="true" style="font-family:var(--f-thin)">얇은둥근모</button>
+            <button class="chip" data-tf="f14" aria-pressed="false" style="font-family:var(--f-14)">갈무리14</button>
+            <button class="chip" data-tf="f11" aria-pressed="false" style="font-family:var(--f-11)">갈무리모노11</button>
+            <button class="chip" data-tf="f7" aria-pressed="false" style="font-family:var(--f-7)">갈무리7</button>
+          </div>
+          <button class="btn primary" id="txtAdd">글씨 추가</button>
+          <p class="hint">글씨를 추가한 뒤 화면에서 고르면 입력칸·색·글꼴을 바꿔 그 글씨에 바로 반영할 수 있습니다.</p>
+        </div>
+      </div>
       <div class="card stack">
         <h2>꾸미기</h2>
-        <p class="hint">여기에 올린 배치가 결과의 기본 카드가 됩니다. 팔레트에서 눌러 가져오고 화면에서 끌어 옮기세요. 아래 확대 버튼과 스크롤 막대로 화면을 키워 보며 맞출 수 있습니다.</p>
+        <p class="hint">여기에 올린 배치가 결과의 기본 카드가 됩니다. 보관함에서 눌러 가져오고 화면에서 끌어 옮기세요. 아래 확대 버튼과 스크롤 막대로 화면을 키워 보며 맞출 수 있습니다.</p>
         <label class="rng line"><span>크기</span><input type="range" id="selS" min="10" max="400" step="10" value="100" disabled><output></output></label>
         <label class="rng line"><span>각도</span><input type="range" id="selR" min="-180" max="180" step="15" value="0" disabled><output></output></label>
         <div class="zrow">
@@ -357,19 +375,6 @@ input,textarea,select{font-size:16px}
         <p class="hint" id="selHint">화면에서 이미지나 글씨를 눌러 고르세요.</p>
         <button class="btn" id="stageNew">새로 시작</button>
         <p class="hint" id="stageNote" role="status"></p>
-      </div>
-      <div class="card stack">
-        <h2>글씨 입력</h2>
-        <input type="text" id="txtIn" maxlength="30" placeholder="쓸 말을 입력하세요" autocomplete="off">
-        <div class="sqrow" id="txtColors" role="group" aria-label="글씨 색"><button class="sq" data-tc="#ff004d" aria-label="빨강" title="빨강" aria-pressed="false" style="background:#ff004d"></button><button class="sq" data-tc="#ffa300" aria-label="주황" title="주황" aria-pressed="false" style="background:#ffa300"></button><button class="sq" data-tc="#ffec27" aria-label="노랑" title="노랑" aria-pressed="false" style="background:#ffec27"></button><button class="sq" data-tc="#00e436" aria-label="초록" title="초록" aria-pressed="false" style="background:#00e436"></button><button class="sq" data-tc="#29adff" aria-label="파랑" title="파랑" aria-pressed="false" style="background:#29adff"></button><button class="sq" data-tc="#1d2b53" aria-label="남색" title="남색" aria-pressed="false" style="background:#1d2b53"></button><button class="sq" data-tc="#9b4fd6" aria-label="보라" title="보라" aria-pressed="false" style="background:#9b4fd6"></button><button class="sq" data-tc="#fff1e8" aria-label="흰색" title="흰색" aria-pressed="false" style="background:#fff1e8"></button><button class="sq" data-tc="#000000" aria-label="검정" title="검정" aria-pressed="true" style="background:#000000"></button></div>
-        <div class="row" id="txtFonts" role="group" aria-label="글꼴">
-          <button class="chip" data-tf="thin" aria-pressed="true" style="font-family:var(--f-thin)">얇은둥근모</button>
-          <button class="chip" data-tf="f14" aria-pressed="false" style="font-family:var(--f-14)">갈무리14</button>
-          <button class="chip" data-tf="f11" aria-pressed="false" style="font-family:var(--f-11)">갈무리모노11</button>
-          <button class="chip" data-tf="f7" aria-pressed="false" style="font-family:var(--f-7)">갈무리7</button>
-        </div>
-        <button class="btn primary" id="txtAdd">글씨 추가</button>
-        <p class="hint">글씨를 추가한 뒤 화면에서 고르면 입력칸·색·글꼴을 바꿔 그 글씨에 바로 반영할 수 있습니다.</p>
       </div>
       <div class="card stack">
         <h2>테두리</h2>
@@ -2063,6 +2068,10 @@ async function refreshPalette() {
   }));
   if (!imgs.length) none(li); if (!phs.length) none(lp);
 }
+$('#txtFold').addEventListener('click', () => {
+  const b = $('#txtFold'), open = b.getAttribute('aria-expanded') !== 'true';
+  b.setAttribute('aria-expanded', String(open)); $('#txtBody').hidden = !open;
+});
 $('#palFold').addEventListener('click', () => {
   const b = $('#palFold'), open = b.getAttribute('aria-expanded') !== 'true';
   b.setAttribute('aria-expanded', String(open)); $('#palBody').hidden = !open;
