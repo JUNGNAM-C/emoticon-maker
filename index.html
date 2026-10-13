@@ -70,6 +70,11 @@ body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font-body)}
 .rng{display:grid;grid-template-columns:minmax(0,1fr) 3ch;gap:2px 10px;align-items:center}
 .rng span{grid-column:1/-1;font-weight:500;font-size:14px}
 .rng output{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+.rng.line input[type=range]{-webkit-appearance:none;appearance:none;height:22px;background-color:transparent;background-repeat:no-repeat;cursor:pointer}
+.rng.line input[type=range]::-webkit-slider-runnable-track{height:2px;background:#5f574f;border:0}
+.rng.line input[type=range]::-moz-range-track{height:2px;background:#5f574f;border:0}
+.rng.line input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-7px;background:#ffec27;border:2px solid #000;border-radius:0;box-shadow:2px 2px 0 #000}
+.rng.line input[type=range]::-moz-range-thumb{width:12px;height:12px;background:#ffec27;border:2px solid #000;border-radius:0;box-shadow:2px 2px 0 #000}
 .rng.line{grid-template-columns:5.6em minmax(0,1fr) 4.6ch;gap:0 10px}
 .rng.line span{grid-column:auto;white-space:nowrap}
 .rng.grow{flex:1 1 160px;min-width:0}
@@ -270,8 +275,6 @@ input,textarea,select{font-size:16px}
       <div class="card stack">
         <h2>손글씨 쓰기</h2>
         <p class="hint">한 글자씩 쓰고 ‘붙이기’를 누르면, 아래 문구 줄에 이어서 붙습니다.</p>
-        <div class="strip"><canvas id="strip" width="720" height="150" aria-label="붙인 글자 미리보기"></canvas><span class="hint" id="stripEmpty">아직 붙인 글자가 없습니다.</span></div>
-        <label class="rng line"><span>글자 굵기</span><input type="range" id="thickW" min="40" max="300" value="100"><output></output></label>
         <label class="rng line"><span>펜 굵기</span><input type="range" id="penW" min="2" max="24" value="8"><output></output></label>
         <label class="rng line"><span>보정 강도</span><input type="range" id="fixW" min="0" max="3" step="1" value="2"><output></output></label>
         <label class="rng line"><span>필압 유무</span><input type="range" id="pressW" min="0" max="1" step="1" value="1"><output></output></label>
@@ -285,6 +288,8 @@ input,textarea,select{font-size:16px}
           <button class="btn" id="padReset">처음부터</button>
         </div>
         <canvas id="pad" class="pad" width="360" height="360" aria-label="한 글자를 쓰는 곳"></canvas>
+        <div class="strip"><canvas id="strip" width="720" height="150" aria-label="붙인 글자 미리보기"></canvas><span class="hint" id="stripEmpty">아직 붙인 글자가 없습니다.</span></div>
+        <label class="rng line"><span>글자 굵기</span><input type="range" id="thickW" min="40" max="300" step="10" value="100"><output></output></label>
         <button class="btn primary" id="padSave" disabled>문구 추가</button>
         <button class="btn" id="padKeep" disabled>문구 저장 (보관함)</button>
         <p class="hint" id="padNote" role="status"></p>
@@ -1429,6 +1434,12 @@ $('#padSpace').addEventListener('click', () => {
   if (glyphs.length && !glyphs[glyphs.length - 1].space) { glyphs.push({ space: true }); renderStrip(); }
 });
 $('#padPop').addEventListener('click', () => { glyphs.pop(); renderStrip(); });
+/* small circles on the slider background at every selectable stop */
+$$('.rng.line input[type=range]').forEach(r => {
+  const mn = +r.min, mx = +r.max, stp = +r.step || 1, n = Math.round((mx - mn) / stp), g = [];
+  for (let i = 0; i <= n; i++) g.push(`radial-gradient(circle 2.5px at calc(8px + (100% - 16px) * ${i / n}) 50%, #5f574f 96%, transparent 100%)`);
+  r.style.backgroundImage = g.join(',');
+});
 $('#fixW').addEventListener('input', e => { st.fix = +e.target.value; e.target.parentElement.querySelector('output').textContent = st.fix; });
 $('#pressW').addEventListener('input', e => { st.press = +e.target.value; e.target.parentElement.querySelector('output').textContent = st.press ? 'O' : 'X'; });
 $('#fixW').parentElement.querySelector('output').textContent = st.fix;
