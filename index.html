@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2260,7 +2260,12 @@ function chainCard(items) {
   return out;
 }
 const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결'];
-const threeCards = items => [cloneItems(items), overlapCard(items), chainCard(items)];   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
+const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
+function threeCards(items) {
+  const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
+  const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
+  return [cloneItems(items), mix(overlapCard), mix(chainCard)];
+}   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
   res = [base].concat(threeCards(stage)); 
