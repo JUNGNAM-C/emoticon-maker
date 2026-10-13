@@ -2158,12 +2158,7 @@ function makeSample(o) {
 (async function init() {
   drawPad(); renderStrip(); refreshPhrases(); syncTxtUI();
   await libOpen(); renderPhLib(); try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* optional */ }
-  const nrest = await workRestore();
-  if (!nrest) {
-    const a = makeSample({ bg1: '#c2c3c7', bg2: '#c2c3c7', jacket: '#29adff', skin: '#fff1e8', hair: '#1d2b53' });
-    const b = makeSample({ bg1: '#ffec27', bg2: '#ffec27', jacket: '#ff004d', skin: '#fff1e8', hair: '#000000' });
-    photos.push(makePhoto(a, 600, 720, true), makePhoto(b, 600, 720, true));
-  }
+  await workRestore();
   WK.loaded = true;
   $('#wnote').textContent = LIB.ok ? '팔레트에 있는 사진은 이 기기에 자동으로 보관되어, 다시 열어도 그대로 남아 있습니다.' : '이 화면에서는 자동 보관을 쓸 수 없어, 창을 닫으면 사진이 사라집니다.';
   refreshPhotos();
