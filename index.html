@@ -280,15 +280,13 @@ input,textarea,select{font-size:16px}
           <button class="btn" id="padPop">마지막 빼기</button>
           <button class="btn" id="padReset">처음부터</button>
         </div>
-        <div class="row" id="fixes" role="group" aria-label="손글씨 보정"><span class="hint">보정</span>
-          <button class="chip" data-fx="0" aria-pressed="false">끔</button>
-          <button class="chip" data-fx="1" aria-pressed="false">약</button>
-          <button class="chip" data-fx="2" aria-pressed="true">보통</button>
-          <button class="chip" data-fx="3" aria-pressed="false">강</button>
-        </div>
-        <div class="row" id="press" role="group" aria-label="필압"><span class="hint">필압(속도) 굵기</span>
-          <button class="chip" data-pr="0" aria-pressed="false">끔</button>
-          <button class="chip" data-pr="1" aria-pressed="true">켬</button>
+        <div class="btnrow" id="opts" role="group" aria-label="보정과 필압">
+          <button class="btn chip" data-fx="0" aria-pressed="false">보정<br>끔</button>
+          <button class="btn chip" data-fx="1" aria-pressed="false">보정<br>약</button>
+          <button class="btn chip" data-fx="2" aria-pressed="true">보정<br>보통</button>
+          <button class="btn chip" data-fx="3" aria-pressed="false">보정<br>강</button>
+          <button class="btn chip" data-pr="1" aria-pressed="true">필압<br>켬</button>
+          <button class="btn chip" data-pr="0" aria-pressed="false">필압<br>끔</button>
         </div>
         <canvas id="pad" class="pad" width="360" height="360" aria-label="한 글자를 쓰는 곳"></canvas>
         <button class="btn primary" id="padSave" disabled>문구 추가</button>
@@ -1255,10 +1253,11 @@ function paintStrokes(x, list, dx, dy) {
 }
 function drawPad() {
   pctx.clearRect(0, 0, pad.width, pad.height);
-  pctx.fillStyle = 'rgba(95,87,79,.6)';
-  for (let gy = 15; gy < pad.height; gy += 15) for (let gx = 15; gx < pad.width; gx += 15) pctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
-  pctx.strokeStyle = '#5f574f'; pctx.lineWidth = 2; pctx.setLineDash([10, 10]);
-  pctx.beginPath(); pctx.moveTo(16, pad.height * 0.72); pctx.lineTo(pad.width - 16, pad.height * 0.72); pctx.stroke();
+  pctx.strokeStyle = '#5f574f'; pctx.lineWidth = 2; pctx.setLineDash([8, 8]);
+  const m = 14, W = pad.width, H = pad.height;
+  pctx.strokeRect(m, m, W - 2 * m, H - 2 * m);                 /* dashed square frame */
+  pctx.beginPath(); pctx.moveTo(W / 2, m); pctx.lineTo(W / 2, H - m);   /* dashed cross */
+  pctx.moveTo(m, H / 2); pctx.lineTo(W - m, H / 2); pctx.stroke();
   pctx.setLineDash([]);
   paintStrokes(pctx, strokes.concat(padDraw ? [padDraw] : []), 0, 0);
   $('#padAdd').disabled = !strokes.length;
@@ -1429,8 +1428,8 @@ $('#padSpace').addEventListener('click', () => {
   if (glyphs.length && !glyphs[glyphs.length - 1].space) { glyphs.push({ space: true }); renderStrip(); }
 });
 $('#padPop').addEventListener('click', () => { glyphs.pop(); renderStrip(); });
-bindChips('#press', 'data-pr', v => { st.press = +v; });
-bindChips('#fixes', 'data-fx', v => { st.fix = +v; });
+bindChips('#opts', 'data-pr', v => { st.press = +v; });
+bindChips('#opts', 'data-fx', v => { st.fix = +v; });
 $('#padUndo').addEventListener('click', () => { strokes.pop(); drawPad(); });
 $('#padClear').addEventListener('click', () => { strokes = []; padDraw = null; drawPad(); });
 $('#padReset').addEventListener('click', resetPad);
