@@ -194,6 +194,10 @@ input[type=range]{accent-color:var(--n)}
 .sqrow{display:flex;gap:3px}
 .sq{flex:1 1 0;min-width:0;aspect-ratio:1;padding:0;border:2px solid #000;cursor:pointer;box-shadow:2px 2px 0 #000}
 .sq[aria-pressed="true"]{outline:3px solid #ff004d;outline-offset:1px}
+.padrow{min-width:0;display:flex;gap:8px;align-items:stretch;width:100%;max-width:calc(46vh + 36px);box-sizing:border-box;margin-inline:auto}
+.padrow .sqrow{flex-direction:column;flex:none;width:28px;gap:3px}
+.padrow .sq{flex:1 1 0;aspect-ratio:auto;width:100%;min-height:0}
+.padrow .pad{flex:1 1 0;min-width:0;width:0;height:auto;align-self:flex-start;aspect-ratio:1/1;margin:0}
 .sq:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #000}
 .btnrow{display:flex;gap:3px}
 .btnrow .btn{flex:1 1 0;min-width:0;padding:6px 0;font-size:11px;letter-spacing:-0.5px;line-height:1.2;white-space:normal;word-break:keep-all;text-align:center}
@@ -278,7 +282,10 @@ input,textarea,select{font-size:16px}
         <label class="rng line"><span>펜 굵기</span><input type="range" id="penW" min="2" max="24" value="8"><output></output></label>
         <label class="rng line"><span>보정 강도</span><input type="range" id="fixW" min="0" max="3" step="1" value="2"><output></output></label>
         <label class="rng line"><span>필압 유무</span><input type="range" id="pressW" min="0" max="1" step="1" value="1"><output></output></label>
-        <div class="sqrow" id="pens" role="group" aria-label="글자색"><button class="sq" data-pen="#ff004d" aria-label="빨강" title="빨강" aria-pressed="false" style="background:#ff004d"></button><button class="sq" data-pen="#ffa300" aria-label="주황" title="주황" aria-pressed="false" style="background:#ffa300"></button><button class="sq" data-pen="#ffec27" aria-label="노랑" title="노랑" aria-pressed="false" style="background:#ffec27"></button><button class="sq" data-pen="#00e436" aria-label="초록" title="초록" aria-pressed="false" style="background:#00e436"></button><button class="sq" data-pen="#29adff" aria-label="파랑" title="파랑" aria-pressed="false" style="background:#29adff"></button><button class="sq" data-pen="#1d2b53" aria-label="남색" title="남색" aria-pressed="false" style="background:#1d2b53"></button><button class="sq" data-pen="#9b4fd6" aria-label="보라" title="보라" aria-pressed="false" style="background:#9b4fd6"></button><button class="sq" data-pen="#fff1e8" aria-label="흰색" title="흰색" aria-pressed="false" style="background:#fff1e8"></button><button class="sq" data-pen="#000000" aria-label="검정" title="검정" aria-pressed="true" style="background:#000000"></button><button class="sq" id="autoRainbow" aria-label="무지개 순서 자동" title="무지개 순서 자동" aria-pressed="false" style="background:linear-gradient(135deg,#ff004d 0 25%,#ffec27 25% 50%,#00e436 50% 75%,#29adff 75%)"></button><button class="sq" id="autoRandom" aria-label="랜덤 색 자동" title="랜덤 색 자동" aria-pressed="false" style="background:conic-gradient(#ff004d 0 25%,#ffa300 0 50%,#29adff 0 75%,#9b4fd6 0)"></button><button class="sq" id="innerRainbow" aria-label="글자 안 무지개" title="글자 안 무지개" aria-pressed="false" style="background:linear-gradient(90deg,#ff004d,#ffa300,#ffec27,#00e436,#29adff,#9b4fd6)"></button></div>
+        <div class="padrow">
+  <div class="sqrow" id="pens" role="group" aria-label="글자색"><button class="sq" data-pen="#ff004d" aria-label="빨강" title="빨강" aria-pressed="false" style="background:#ff004d"></button><button class="sq" data-pen="#ffa300" aria-label="주황" title="주황" aria-pressed="false" style="background:#ffa300"></button><button class="sq" data-pen="#ffec27" aria-label="노랑" title="노랑" aria-pressed="false" style="background:#ffec27"></button><button class="sq" data-pen="#00e436" aria-label="초록" title="초록" aria-pressed="false" style="background:#00e436"></button><button class="sq" data-pen="#29adff" aria-label="파랑" title="파랑" aria-pressed="false" style="background:#29adff"></button><button class="sq" data-pen="#1d2b53" aria-label="남색" title="남색" aria-pressed="false" style="background:#1d2b53"></button><button class="sq" data-pen="#9b4fd6" aria-label="보라" title="보라" aria-pressed="false" style="background:#9b4fd6"></button><button class="sq" data-pen="#fff1e8" aria-label="흰색" title="흰색" aria-pressed="false" style="background:#fff1e8"></button><button class="sq" data-pen="#000000" aria-label="검정" title="검정" aria-pressed="true" style="background:#000000"></button><button class="sq" id="autoRainbow" aria-label="무지개 순서 자동" title="무지개 순서 자동" aria-pressed="false" style="background:linear-gradient(135deg,#ff004d 0 25%,#ffec27 25% 50%,#00e436 50% 75%,#29adff 75%)"></button><button class="sq" id="autoRandom" aria-label="랜덤 색 자동" title="랜덤 색 자동" aria-pressed="false" style="background:conic-gradient(#ff004d 0 25%,#ffa300 0 50%,#29adff 0 75%,#9b4fd6 0)"></button><button class="sq" id="innerRainbow" aria-label="글자 안 무지개" title="글자 안 무지개" aria-pressed="false" style="background:linear-gradient(90deg,#ff004d,#ffa300,#ffec27,#00e436,#29adff,#9b4fd6)"></button></div>
+  <canvas id="pad" class="pad" width="360" height="360" aria-label="한 글자를 쓰는 곳"></canvas>
+        </div>
         <div class="btnrow">
           <button class="btn" id="padUndo">지우기</button>
           <button class="btn primary" id="padAdd" disabled>붙이기</button>
@@ -287,7 +294,6 @@ input,textarea,select{font-size:16px}
           <button class="btn" id="padPop">마지막 빼기</button>
           <button class="btn" id="padReset">처음부터</button>
         </div>
-        <canvas id="pad" class="pad" width="360" height="360" aria-label="한 글자를 쓰는 곳"></canvas>
         <div class="strip"><canvas id="strip" width="720" height="150" aria-label="붙인 글자 미리보기"></canvas><span class="hint" id="stripEmpty">아직 붙인 글자가 없습니다.</span></div>
         <label class="rng line"><span>글자 굵기</span><input type="range" id="thickW" min="40" max="300" step="10" value="100"><output></output></label>
         <button class="btn primary" id="padSave" disabled>문구 추가</button>
