@@ -395,7 +395,7 @@ input,textarea,select{font-size:16px}
         <h2>테두리</h2>
         <p class="hint">이미지, 손글씨, 글씨에 같은 테두리가 한꺼번에 붙습니다. 개체는 처음에는 칠한 면만 나오며, 개체를 고른 뒤 ‘개체 테두리’ 버튼을 눌러 개체마다 따로 테두리를 켜고 끌 수 있습니다.</p>
         <div class="row" id="bstyles" role="group" aria-label="테두리 종류">
-          <button class="chip sw" data-bs="white" aria-pressed="true"><i style="background:#fff1e8"></i>흰색</button>
+          <button class="chip sw" data-bs="white" aria-pressed="true"><i style="background:#ffffff"></i>흰색</button>
           <button class="chip sw" data-bs="black" aria-pressed="false"><i style="background:#000000"></i>검정</button>
           <button class="chip sw" data-bs="rainbow" aria-pressed="false"><i style="background:linear-gradient(90deg,#ff004d,#ffa300,#ffec27,#00e436,#29adff,#9b4fd6)"></i>무지개</button>
         </div>
@@ -1844,7 +1844,7 @@ function withBorder(img, bw, style) {
       const g = rx.createLinearGradient(0, 0, W, H);
       BRAINBOW.forEach((col, i) => g.addColorStop(i / (BRAINBOW.length - 1), col));
       rx.fillStyle = g;
-    } else rx.fillStyle = style === 'black' ? '#000000' : '#fff1e8';
+    } else rx.fillStyle = style === 'black' ? '#000000' : '#ffffff';
     rx.fillRect(0, 0, W, H);
     x.drawImage(ring, 0, 0);
   }
@@ -1854,7 +1854,7 @@ function withBorder(img, bw, style) {
 function shapeBorderFill(x, it, w, h) {
   const s = st.bstyle;
   if (s === 'rainbow') { const g = x.createLinearGradient(0, 0, w, h); BRAINBOW.forEach((col, i) => g.addColorStop(i / (BRAINBOW.length - 1), col)); return g; }
-  return s === 'black' ? '#000000' : '#fff1e8';
+  return s === 'black' ? '#000000' : '#ffffff';
 }
 function drawShapeVec(x, it, u) {                       /* vector draw: stays razor sharp at any zoom */
   const sh = it.src, k = fitSize(it)[0] * u / sh.w, bw = it.bd ? st.border * u : 0;
