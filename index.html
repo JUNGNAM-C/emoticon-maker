@@ -1851,13 +1851,14 @@ function withBorder(img, bw, style) {
   x.drawImage(sil, 0, 0);
   return c;
 }
+const borderPx = (it, u) => st.border > 0 ? Math.max(1, st.border * u * Math.min(1, it.s)) : 0;   /* the border shrinks together with the item (never grows past the set width) */
 function shapeBorderFill(x, it, w, h) {
   const s = st.bstyle;
   if (s === 'rainbow') { const g = x.createLinearGradient(0, 0, w, h); BRAINBOW.forEach((col, i) => g.addColorStop(i / (BRAINBOW.length - 1), col)); return g; }
   return s === 'black' ? '#000000' : '#ffffff';
 }
 function drawShapeVec(x, it, u) {                       /* vector draw: stays razor sharp at any zoom */
-  const sh = it.src, k = fitSize(it)[0] * u / sh.w, bw = it.bd ? st.border * u : 0;
+  const sh = it.src, k = fitSize(it)[0] * u / sh.w, bw = it.bd ? borderPx(it, u) : 0;
   x.save(); x.scale(k, k); x.translate(-sh.w / 2, -sh.h / 2); x.lineJoin = 'round'; x.miterLimit = 2;
   if (bw > 0) { x.strokeStyle = shapeBorderFill(x, it, sh.w, sh.h); x.lineWidth = 2 * bw / k; x.stroke(sh.sil); }
   sh.layers.forEach(L => { x.fillStyle = L.c; x.fill(L.p, 'evenodd'); });
@@ -1865,7 +1866,7 @@ function drawShapeVec(x, it, u) {                       /* vector draw: stays ra
 }
 function itemBitmap(it, S) {
   if (it.type === 'shape') {                            /* raster copy only for hit tests and the selection box */
-    const u = S / 360, [fw, fh] = fitSize(it), bw = it.bd ? Math.round(st.border * u) : 0;
+    const u = S / 360, [fw, fh] = fitSize(it), bw = it.bd ? Math.round(borderPx(it, u)) : 0;
     const w = Math.max(2, Math.round(fw * u)) + 2 * bw, h = Math.max(2, Math.round(fh * u)) + 2 * bw;
     const key = [S, w, h, bw, st.bstyle, it.src.id].join('|');
     if (it._bm && it._bmk === key) return it._bm;
@@ -1873,7 +1874,7 @@ function itemBitmap(it, S) {
     it._bm = c; it._bmk = key; return c;
   }
   const u = S / 360, base = baseOf(it), [fw, fh] = fitSize(it);
-  const w = Math.max(2, Math.round(fw * u)), h = Math.max(2, Math.round(fh * u)), bw = Math.round(st.border * u);
+  const w = Math.max(2, Math.round(fw * u)), h = Math.max(2, Math.round(fh * u)), bw = Math.round(borderPx(it, u));
   const key = [S, w, h, bw, st.bstyle, baseVer(it)].join('|');
   if (it._bm && it._bmk === key) return it._bm;
   const inner = mkCanvas(w, h), ix = inner.getContext('2d');
@@ -2229,7 +2230,8 @@ function chainCard(items) {
     let gap = R3.gap;
     if (R3.repeat) {                                    /* background text: rows from the very top, 4-10 rows fill the whole card, no row touches the next */
       const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0), pitch = 360 / nRows;
-      gap = 2 * st.border + R3.gap;                     /* the borders of two rows never meet */
+      const hRef = Math.max(...txts.map(h1));
+      for (let k = 0; k < 4; k++) { H = Math.max(R3.hMin, pitch - gap); gap = 2 * st.border * Math.min(1, H / hRef) + R3.gap; }   /* thinner borders on smaller writing -> tighter rows; two borders never meet */
       H = Math.max(R3.hMin, pitch - gap); gap = pitch - H;
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
