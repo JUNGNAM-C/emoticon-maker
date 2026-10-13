@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치·각도를 바꿔 서로 겹치지 않게 흩어 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치·각도를 바꿔 서로 겹치지 않게 흩어 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 무작위 순서로 모두 같은 크기로 길게 이어 붙이고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2248,37 +2248,41 @@ function overlapCard(items) {
   }
   return out;
 }
-/* 3) chain: all writing at one size, joined into lines (wrapping to the card width), one image above */
+/* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
+const R3 = { hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 1080, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
 function chainCard(items) {
-  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), out = [];
+  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
   const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
-  let top = 348;
   if (txts.length) {
-    let H = 66, rows = [], totalH = 0;
-    for (; H >= 18; H -= 4) {
+    let H = R3.hStart, rows = [], totalH = 0;
+    for (; H >= R3.hMin; H -= R3.hStep) {
       rows = []; let row = [], rw = 0;
       txts.forEach(t => {
         const w = w1(t) * H / h1(t);
-        if (row.length && rw + w > 336) { rows.push({ row, rw }); row = []; rw = 0; }
+        if (row.length && rw + w > R3.rowW) { rows.push({ row, rw }); row = []; rw = 0; }
         row.push({ t, w }); rw += w;
       });
       if (row.length) rows.push({ row, rw });
-      totalH = rows.length * (H + 4);
-      if (totalH <= (imgs.length ? 170 : 330)) break;
+      totalH = rows.length * (H + R3.gap);
+      if (totalH <= R3.maxH) break;
     }
-    top = 350 - totalH;
+    H = Math.max(H, R3.hMin);
+    const top = R3.bottom - totalH;
     rows.forEach((r, ri) => {
-      const k = r.rw > 336 ? 336 / r.rw : 1;
-      let x = 180 - r.rw * k / 2;
+      let x = 180 - r.rw / 2;                           /* centred; a long line runs past the card edges */
       r.row.forEach(c => {
-        const q = withS(c.t, c.t.s), sc = H * k / h1(c.t); q.s = sc;
-        const [w, h] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + 4) + (H + 4) / 2; q.rot = 0; out.push(q); x += w;
+        const q = withS(c.t, c.t.s); q.s = H / h1(c.t);
+        const [w] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + R3.gap) + (H + R3.gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
       });
     });
   }
   if (imgs.length) {
-    const src = imgs[(rng() * imgs.length) | 0], q = withS(src, 1), m = Math.max(...fitSize(q)), room = txts.length ? top - 14 : 320;
-    q.s = Math.min(room, 300) / m; q.x = 180; q.y = txts.length ? 8 + room / 2 : 180; q.rot = 0; out.push(q);
+    const src = imgs[(rng() * imgs.length) | 0], q = withS(src, 1), a = rr(-R3.rot, R3.rot), ar = Math.abs(a) * Math.PI / 180;
+    let [w, h] = fitSize(q); const bb = (w, h) => [Math.abs(w * Math.cos(ar)) + Math.abs(h * Math.sin(ar)), Math.abs(w * Math.sin(ar)) + Math.abs(h * Math.cos(ar))];
+    if (txts.length) q.s = src.s * rr(R3.kMin, R3.kMax);
+    else { const [bw, bh] = bb(w, h); q.s = 360 / Math.max(bw, bh); }   /* no writing: as large as the card allows */
+    [w, h] = fitSize(q); const [, bh] = bb(w, h);
+    q.x = 180; q.y = txts.length ? R3.top + bh / 2 : 180; q.rot = a; q.flip = false; out.push(q);
   }
   return out;
 }
