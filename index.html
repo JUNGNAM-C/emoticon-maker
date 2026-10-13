@@ -1935,12 +1935,12 @@ function cartoonize(src, B) {                          /* B = outline thickness 
   }
   const lum = new Float32Array(N);
   for (let p = 0; p < N; p++) lum[p] = a[p * 4 + 3] < 128 ? -1 : 0.299 * a[p * 4] + 0.587 * a[p * 4 + 1] + 0.114 * a[p * 4 + 2];
-  const edge = new Uint8Array(N);
+  const edge = new Uint8Array(N), inn = new Uint8Array(N);
   for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) {   /* outlines: strong brightness steps and the silhouette */
     const p = y * S + x, l = lum[p]; if (l < 0) continue;
     if (lum[p - 1] < 0 || lum[p + 1] < 0 || lum[p - S] < 0 || lum[p + S] < 0) { edge[p] = 1; continue; }
     const gx = lum[p + 1] - lum[p - 1], gy = lum[p + S] - lum[p - S];
-    if (Math.abs(gx) + Math.abs(gy) > CARTOON.edge) edge[p] = 1;
+    if (Math.abs(gx) + Math.abs(gy) > CARTOON.edge) inn[p] = 1;   /* inner lines stay thin so eyes and mouth do not clog */
   }
   const L = CARTOON.levels - 1;
   for (let p = 0; p < N; p++) {                        /* colour steps + a little more saturation */
@@ -1954,7 +1954,7 @@ function cartoonize(src, B) {                          /* B = outline thickness 
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const xx = x + k; if (xx >= 0 && xx < S && edge[y * S + xx]) m = 1; } t[y * S + x] = m; }
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const yy = y + k; if (yy >= 0 && yy < S && t[yy * S + x]) m = 1; } e2[y * S + x] = m; }
   } else e2.set(edge);
-  for (let p = 0; p < N; p++) if (e2[p] && a[p * 4 + 3] >= 128) { const i = p * 4; a[i] = CARTOON.line[0]; a[i + 1] = CARTOON.line[1]; a[i + 2] = CARTOON.line[2]; a[i + 3] = 255; }
+  for (let p = 0; p < N; p++) if ((e2[p] || inn[p]) && a[p * 4 + 3] >= 128) { const i = p * 4; a[i] = CARTOON.line[0]; a[i + 1] = CARTOON.line[1]; a[i + 2] = CARTOON.line[2]; a[i + 3] = 255; }
   const out = mkCanvas(S, S); out.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(a), S, S), 0, 0);
   return out;
 }
@@ -2080,19 +2080,21 @@ async function animeFace(base, lm) {                   /* → canvas with the re
 function inkFace(l, lm, W, H) {                       /* comic ink lines over the AI face: lids, irises, brows, mouth */
   const P = i => [lm[i].x * W, lm[i].y * H], dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const fw = dist(P(234), P(454)), line = (ids, w, col) => { l.strokeStyle = col; l.lineWidth = w; l.lineCap = 'round'; l.lineJoin = 'round'; l.beginPath(); ids.forEach((i, n) => { const p = P(i); n ? l.lineTo(p[0], p[1]) : l.moveTo(p[0], p[1]); }); l.stroke(); };
-  [[33, 133, [246, 161, 160, 159, 158, 157, 173], 159, 145], [362, 263, [466, 388, 387, 386, 385, 384, 398], 386, 374]].forEach(([c1, c2, up, u, lo]) => {
-    const a = P(c1), b = P(c2), ew = dist(a, b), cu = P(u), cl = P(lo), m = [(cu[0] + cl[0]) / 2, (cu[1] + cl[1]) / 2], open = dist(cu, cl) / ew;
-    if (open > 0.1) {
-      const r = ew * 0.26;                                                              /* big iris, dark pupil, two highlights */
-      l.fillStyle = '#5a3228'; l.beginPath(); l.arc(m[0], m[1], r, 0, 7); l.fill();
-      l.fillStyle = '#12060a'; l.beginPath(); l.arc(m[0], m[1], r * 0.58, 0, 7); l.fill();
-      l.lineWidth = Math.max(1.5, r * 0.18); l.strokeStyle = '#12060a'; l.beginPath(); l.arc(m[0], m[1], r, 0, 7); l.stroke();
-      l.fillStyle = '#fff'; l.beginPath(); l.arc(m[0] - r * 0.32, m[1] - r * 0.36, r * 0.34, 0, 7); l.fill();
-      l.beginPath(); l.arc(m[0] + r * 0.36, m[1] + r * 0.34, r * 0.16, 0, 7); l.fill();
-    }
-    line([c1].concat(up, [c2]), Math.max(2, ew * 0.11), '#1b1220');                  /* upper lid */
+  const EYES = [[33, 133, [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]], [362, 263, [362, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382]]];
+  EYES.forEach(([c1, c2, ring]) => {                                                   /* bigger eye: clear white, dark iris, no highlight */
+    const ew = dist(P(c1), P(c2)), m = ring.reduce((q, i) => [q[0] + P(i)[0] / ring.length, q[1] + P(i)[1] / ring.length], [0, 0]), K = 1.4;
+    const path = () => { l.beginPath(); ring.forEach((i, n) => { const p = P(i), x = m[0] + (p[0] - m[0]) * K, y = m[1] + (p[1] - m[1]) * K * 1.15; n ? l.lineTo(x, y) : l.moveTo(x, y); }); l.closePath(); };
+    l.save(); path(); l.fillStyle = '#fffaf2'; l.fill(); l.clip();
+    l.fillStyle = '#0e0509'; l.beginPath(); l.arc(m[0], m[1], ew * K * 0.27, 0, 7); l.fill();   /* iris (pupil inside is the same black) */
+    l.restore();
+    path(); l.strokeStyle = '#1b1220'; l.lineWidth = Math.max(1.5, ew * 0.07); l.lineJoin = 'round'; l.stroke();   /* outline of the eye */
+    l.strokeStyle = '#1b1220'; l.lineWidth = Math.max(2, ew * 0.13); l.lineCap = 'round'; l.beginPath();               /* heavier upper lid */
+    ring.slice(0, 9).forEach((i, n) => { const p = P(i), x = m[0] + (p[0] - m[0]) * K, y = m[1] + (p[1] - m[1]) * K * 1.15; n ? l.lineTo(x, y) : l.moveTo(x, y); }); l.stroke();
   });
-  line([70, 63, 105, 66, 107], fw * 0.035, '#2a1c18'); line([300, 293, 334, 296, 336], fw * 0.035, '#2a1c18');
+  [[70, 63, 105, 66, 107, 55, 65, 52, 53, 46], [300, 293, 334, 296, 336, 285, 295, 282, 283, 276]].forEach(ids => {   /* brows: follow the real brow shape, soft brown */
+    l.fillStyle = 'rgba(58,38,30,0.82)'; l.strokeStyle = 'rgba(58,38,30,0.82)'; l.lineWidth = fw * 0.012; l.lineJoin = 'round';
+    l.beginPath(); ids.forEach((i, n) => { const p = P(i); n ? l.lineTo(p[0], p[1]) : l.moveTo(p[0], p[1]); }); l.closePath(); l.fill(); l.stroke();
+  });
   const mw = dist(P(61), P(291));
   line([61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291], mw * 0.045, '#7a2434');        /* mouth */
   line([78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308], mw * 0.03, '#7a2434');
