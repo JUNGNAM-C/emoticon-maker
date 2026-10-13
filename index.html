@@ -2249,25 +2249,28 @@ function overlapCard(items) {
   return out;
 }
 /* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
-const R3 = { repeat: true, rows: 0, hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const R3 = { repeat: true, rowsMin: 4, rowsMax: 10, rowWMin: 360, rowWMax: 1080, hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
 function chainCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
   const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
   if (txts.length) {
     let H = R3.hStart, rows = [], totalH = 0;
-    if (R3.repeat) {                                    /* keep repeating the writing (random order, cycling) until every row is full */
-      const nRows = R3.rows || Math.max(1, Math.floor(R3.maxH / (H + R3.gap)));
+    let gap = R3.gap;
+    if (R3.repeat) {                                    /* repeat the writing (random order, cycling); random row count, random width per row */
+      const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0);
+      H = Math.min(R3.hStart, Math.floor(R3.maxH / nRows) - gap);
+      if (H < R3.hMin) { H = R3.hMin; gap = Math.max(0, R3.maxH / nRows - H); }   /* many rows: shrink the writing, then the line gap, to stay inside the height */
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
-        const row = []; let rw = 0;
+        const row = [], lim = rr(R3.rowWMin, R3.rowWMax); let rw = 0;
         for (let g = 0; g < 400; g++) {
           const t = txts[idx % txts.length], w = w1(t) * H / h1(t);
-          if (row.length && rw + w > R3.rowW) break;
+          if (row.length && rw + w > lim) break;
           row.push({ t, w }); rw += w; idx++;
         }
         rows.push({ row, rw });
       }
-      totalH = rows.length * (H + R3.gap);
+      totalH = rows.length * (H + gap);
     } else
     for (; H >= R3.hMin; H -= R3.hStep) {
       rows = []; let row = [], rw = 0;
@@ -2286,7 +2289,7 @@ function chainCard(items) {
       let x = 180 - r.rw / 2;                           /* centred; a long line runs past the card edges */
       r.row.forEach(c => {
         const q = withS(c.t, c.t.s); q.s = H / h1(c.t);
-        const [w] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + R3.gap) + (H + R3.gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
+        const [w] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + gap) + (H + gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
       });
     });
   }
