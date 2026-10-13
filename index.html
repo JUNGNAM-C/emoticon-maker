@@ -2007,10 +2007,10 @@ function drawCharacter(base, lms) {                   /* flat skin + big simple 
     const med = v => { v.sort((a, b) => a - b); return v.length ? v[v.length >> 1] : 230; };
     const sk = [med(rs), med(gs), med(bs)], skin = `rgb(${sk[0]},${sk[1]},${sk[2]})`, dk = `rgb(${sk[0] * 0.72 | 0},${sk[1] * 0.62 | 0},${sk[2] * 0.6 | 0})`;
     const cc = mean(F_OVAL);
-    l.fillStyle = skin; l.beginPath();
-    F_OVAL.forEach((i, n) => { const p = P(i), q = [cc[0] + (p[0] - cc[0]) * 0.985, cc[1] + (p[1] - cc[1]) * 0.985]; n ? l.lineTo(q[0], q[1]) : l.moveTo(q[0], q[1]); });
-    l.closePath(); l.fill();
-    l.fillStyle = 'rgba(255,90,110,0.32)';                               /* blush */
+    const ov = () => { l.beginPath(); F_OVAL.forEach((i, n) => { const p = P(i), q = [cc[0] + (p[0] - cc[0]) * 0.985, cc[1] + (p[1] - cc[1]) * 0.985]; n ? l.lineTo(q[0], q[1]) : l.moveTo(q[0], q[1]); }); l.closePath(); };
+    l.save(); ov(); l.clip(); l.filter = `blur(${Math.max(1, fw * 0.045)}px)`; l.drawImage(base, 0, 0); l.filter = 'none';   /* smooth the real skin, keep its shading */
+    l.globalAlpha = 0.5; l.fillStyle = skin; l.fillRect(0, 0, W, H); l.restore();                                      /* …and pull it halfway to one flat colour */
+    l.fillStyle = 'rgba(255,100,110,0.16)';                               /* blush */
     [205, 425].forEach(i => { const p = P(i); l.beginPath(); l.arc(p[0], p[1], fw * 0.08, 0, 7); l.fill(); });
     l.lineCap = 'round'; l.lineJoin = 'round';
     [[33, 133, 159, 145], [362, 263, 386, 374]].forEach(([c1, c2, up, lo]) => {   /* eyes */
@@ -2018,20 +2018,20 @@ function drawCharacter(base, lms) {                   /* flat skin + big simple 
       if (dist(P(up), P(lo)) / ew < 0.11) {                              /* closed → a short arc */
         l.strokeStyle = '#1b1220'; l.lineWidth = ew * 0.14; l.beginPath(); l.ellipse(m[0], m[1] - ew * 0.04, ew * 0.4, ew * 0.2, ang, 0.15 * Math.PI, 0.85 * Math.PI); l.stroke();
       } else {
-        const rx = ew * 0.38, ry = rx * 1.3;
+        const rx = ew * 0.2, ry = rx * 1.15;
         l.fillStyle = '#1b1220'; l.beginPath(); l.ellipse(m[0], m[1], rx, ry, ang, 0, 7); l.fill();
-        l.fillStyle = '#fff'; l.beginPath(); l.arc(m[0] - rx * 0.3, m[1] - ry * 0.35, rx * 0.3, 0, 7); l.fill();
+        l.fillStyle = 'rgba(255,255,255,0.85)'; l.beginPath(); l.arc(m[0] - rx * 0.3, m[1] - ry * 0.3, rx * 0.26, 0, 7); l.fill();
       }
     });
-    l.strokeStyle = '#3a2a22'; l.lineWidth = fw * 0.045;                  /* brows */
+    l.strokeStyle = '#3a2a22'; l.lineWidth = fw * 0.025;                  /* brows */
     [[70, 105, 107], [300, 334, 336]].forEach(([p0, p1, p2]) => { const a = P(p0), m = P(p1), b = P(p2); l.beginPath(); l.moveTo(a[0], a[1]); l.quadraticCurveTo(m[0], m[1] - fw * 0.01, b[0], b[1]); l.stroke(); });
-    const nt = P(1); l.fillStyle = dk; l.beginPath(); l.ellipse(nt[0], nt[1], fw * 0.04, fw * 0.03, 0, 0, 7); l.fill();   /* nose */
+    const nt = P(1); l.fillStyle = dk; l.beginPath(); l.ellipse(nt[0], nt[1], fw * 0.022, fw * 0.016, 0, 0, 7); l.fill();   /* nose */
     const c1 = P(61), c2 = P(291), mw = dist(c1, c2), inn = dist(P(13), P(14)) / mw;                                   /* mouth */
     if (inn > 0.12) {
       l.fillStyle = '#7b1a2c'; l.beginPath(); F_INNER.forEach((i, n) => { const p = P(i); n ? l.lineTo(p[0], p[1]) : l.moveTo(p[0], p[1]); }); l.closePath(); l.fill();
     } else {
       const my = (P(13)[1] + P(14)[1]) / 2, cy = 2 * my - (c1[1] + c2[1]) / 2, mx = (c1[0] + c2[0]) / 2;
-      l.strokeStyle = '#8a2438'; l.lineWidth = mw * 0.13; l.beginPath(); l.moveTo(c1[0], c1[1]); l.quadraticCurveTo(mx, cy, c2[0], c2[1]); l.stroke();
+      l.strokeStyle = '#8a2438'; l.lineWidth = mw * 0.07; l.beginPath(); l.moveTo(c1[0], c1[1]); l.quadraticCurveTo(mx, cy, c2[0], c2[1]); l.stroke();
     }
   });
   l.globalCompositeOperation = 'destination-in'; l.drawImage(base, 0, 0);   /* stay inside the cut-out */
