@@ -391,22 +391,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">모든 카드는 꾸미기에서 올린 배치 그대로입니다. 첫 카드(기본)는 원본이고, 랜덤 3장은 같은 배치에 픽셀아트 효과만 다르게 적용한 카드입니다.</p>
-        <h3 class="sub">픽셀아트 효과 (랜덤 카드 3장에 적용)</h3>
-        <label class="rng line"><span>픽셀아트</span><input type="range" id="pxOn" min="0" max="1" step="1" value="1"><output></output></label>
-        <label class="rng line"><span>점 크기</span><input type="range" id="pxDot" min="2" max="32" step="2" value="6"><output></output></label>
-        <label class="rng line"><span>색 수</span><input type="range" id="pxCol" min="2" max="64" step="1" value="16"><output></output></label>
-        <label class="rng line"><span>채도</span><input type="range" id="pxSat" min="50" max="100" step="5" value="100"><output></output></label>
-        <div class="row" id="pxPal" role="group" aria-label="팔레트">
-          <button class="chip" data-pp="auto" aria-pressed="true">자동 추출</button>
-          <button class="chip" data-pp="gb" aria-pressed="false">게임보이</button>
-          <button class="chip" data-pp="nes" aria-pressed="false">NES</button>
-          <button class="chip" data-pp="pastel" aria-pressed="false">파스텔</button>
-          <button class="chip" data-pp="neon" aria-pressed="false">네온</button>
-          <button class="chip" data-pp="autumn" aria-pressed="false">가을</button>
-          <button class="chip" data-pp="ocean" aria-pressed="false">바다</button>
-        </div>
-        <p class="hint">기본 카드에는 적용하지 않습니다. 랜덤 카드는 채도를 위 값(기본 100%)으로 고정하고, 랜덤1은 점 크기·색 수·팔레트를 위에서 정한 값(팔레트 기본은 자동 추출)으로, 랜덤2는 점 크기만 무작위로, 랜덤3은 색 수와 팔레트를 무작위로 바꿉니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 바꾼 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1923,15 +1908,8 @@ function pixelate(src, o) {
   });
   return out;
 }
-let resFx = [];
-const newFx = () => [
-  { dot: 'u', cnt: 'u', pal: 'u' },
-  { dot: 'u', cnt: 'u', pal: 'u' },
-  { dot: [4, 6, 8, 10, 12, 14, 16][Math.floor(rng() * 7)], cnt: 'u', pal: 'u' },
-  { dot: 'u', cnt: 4 + Math.floor(rng() * 29), pal: ['auto', 'gb', 'nes', 'pastel', 'neon', 'autumn', 'ocean'][Math.floor(rng() * 7)] }
-];
-const fxOf = i => { const f = resFx[i] || { dot: 'u', cnt: 'u', pal: 'u' }; return { dot: f.dot === 'u' ? st.pdot : f.dot, cnt: f.cnt === 'u' ? st.pcol : f.cnt, pal: f.pal === 'u' ? st.ppal : f.pal, sat: st.psat }; };
-function cardCanvas(i, S) { const c = drawCard(res[i], S); return st.pix && i ? pixelate(c, fxOf(i)) : c; }
+const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };   /* card 1 only, fixed */
+function cardCanvas(i, S) { const c = drawCard(res[i], S); return i === 1 ? pixelate(c, PX_FIX) : c; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
 function clampView() {
@@ -2158,11 +2136,75 @@ $('#stageNew').addEventListener('click', () => { stage = []; sel = null; $('#sta
 /* ---------- step 4: default card + 3 random re-arrangements of the same objects ---------- */
 let res = [], resKey = '', pickIdx = 0;
 const stageKey = () => JSON.stringify(stage.map(it => [it.id, it.x, it.y, it.s, it.rot, it.flip, it.text, it.color, it.font, it.src && (it.src.id || it.src.baseVer || 0)])) + st.border + st.bstyle;
-const RTAGS = ['기본', '기본값', '점 랜덤', '색·팔레트 랜덤'];
-const threeCards = items => [cloneItems(items), cloneItems(items), cloneItems(items)];   /* same layout as the default card; only the pixel effect differs */
+const rr = (a, b) => a + rng() * (b - a);
+const withS = (it, s) => Object.assign({}, it, { s, _bm: null, _bmk: '' });
+const isImg = it => it.type === 'photo';
+const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
+/* 1) overlap: images at random sizes may overlap but never hide more than half of each other; one text on top, centred */
+function overlapCard(items) {
+  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), pool = imgs.length ? imgs : items, out = [], boxes = [];
+  const n = 5 + ((rng() * 3) | 0);
+  for (let k = 0; k < n; k++) {
+    const src = pool[k % pool.length];
+    let k2 = rr(0.45, 1.25), done = false;
+    for (let t = 0; t < 120 && !done; t++) {
+      if (t % 30 === 29) k2 *= 0.8;
+      const q = capSide(withS(src, src.s * k2), 300), [w, h] = fitSize(q);
+      const x = w < 340 ? rr(w / 2 + 6, 354 - w / 2) : 180, y = h < 340 ? rr(h / 2 + 6, 354 - h / 2) : 180;
+      const box = [x - w / 2, y - h / 2, x + w / 2, y + h / 2];
+      const ok = boxes.every(o => {
+        const iw = Math.min(box[2], o[2]) - Math.max(box[0], o[0]), ih = Math.min(box[3], o[3]) - Math.max(box[1], o[1]);
+        if (iw <= 0 || ih <= 0) return true;
+        return iw * ih <= 0.5 * Math.min((box[2] - box[0]) * (box[3] - box[1]), (o[2] - o[0]) * (o[3] - o[1]));
+      });
+      if (ok) { q.x = x; q.y = y; q.rot = 0; q.flip = rng() < 0.4 ? !src.flip : src.flip; out.push(q); boxes.push(box); done = true; }
+    }
+  }
+  if (txts.length) {
+    const src = txts[(rng() * txts.length) | 0], q = capSide(withS(src, src.s * rr(0.7, 1.3)), 330);
+    q.x = 180; q.y = 180; q.rot = rr(-35, 35); q.flip = false; out.push(q);
+  }
+  return out;
+}
+/* 3) chain: all writing at one size, joined into lines (wrapping to the card width), one image above */
+function chainCard(items) {
+  const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)), out = [];
+  const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
+  let top = 348;
+  if (txts.length) {
+    let H = 66, rows = [], totalH = 0;
+    for (; H >= 18; H -= 4) {
+      rows = []; let row = [], rw = 0;
+      txts.forEach(t => {
+        const w = w1(t) * H / h1(t);
+        if (row.length && rw + w > 336) { rows.push({ row, rw }); row = []; rw = 0; }
+        row.push({ t, w }); rw += w;
+      });
+      if (row.length) rows.push({ row, rw });
+      totalH = rows.length * (H + 4);
+      if (totalH <= (imgs.length ? 170 : 330)) break;
+    }
+    top = 350 - totalH;
+    rows.forEach((r, ri) => {
+      const k = r.rw > 336 ? 336 / r.rw : 1;
+      let x = 180 - r.rw * k / 2;
+      r.row.forEach(c => {
+        const q = withS(c.t, c.t.s), sc = H * k / h1(c.t); q.s = sc;
+        const [w, h] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + 4) + (H + 4) / 2; q.rot = 0; out.push(q); x += w;
+      });
+    });
+  }
+  if (imgs.length) {
+    const src = imgs[(rng() * imgs.length) | 0], q = withS(src, 1), m = Math.max(...fitSize(q)), room = txts.length ? top - 14 : 320;
+    q.s = Math.min(room, 300) / m; q.x = 180; q.y = txts.length ? 8 + room / 2 : 180; q.rot = 0; out.push(q);
+  }
+  return out;
+}
+const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결'];
+const threeCards = items => [cloneItems(items), overlapCard(items), chainCard(items)];   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
-  res = [base].concat(threeCards(stage)); resFx = newFx();
+  res = [base].concat(threeCards(stage)); 
   resKey = stageKey(); pickIdx = 0; resultsDirty = true;
 }
 function ensureResults() {
@@ -2186,20 +2228,10 @@ function renderCards() {
   ['shareCard', 'saveCard', 'copyCard'].forEach(id => { $('#' + id).disabled = false; });
   updateInfo();
 }
-function updateInfo() {
-  const o = fxOf(pickIdx), fx = st.pix && pickIdx ? ` 점 크기 ${o.dot}, ${o.pal === 'auto' ? '색 ' + o.cnt + '개 자동 추출' : PAL_NAMES[o.pal] + ' 팔레트'}, 채도 ${o.sat}.` : '';
-  $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${fx}` : '';
-}
-const pxRedo = () => { if (stage.length && res.length) { resultsDirty = true; renderCards(); } };
-[['pxOn', 'pix', v => (v ? 'O' : 'X')], ['pxDot', 'pdot', v => v], ['pxCol', 'pcol', v => v], ['pxSat', 'psat', v => v + '%']].forEach(([id, key, fmt]) => {
-  const e = $('#' + id), o = e.parentElement.querySelector('output');
-  const upd = () => { st[key] = +e.value; o.textContent = fmt(+e.value); };
-  upd(); e.addEventListener('input', () => { upd(); pxRedo(); });
-});
-bindChips('#pxPal', 'data-pp', v => { st.ppal = v; pxRedo(); });
+function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 점 크기 4, 색 64개, 채도 100%.' : ''}` : ''; }
 $('#shuffle').addEventListener('click', () => {
   if (!stage.length) { renderCards(); return; }
-  if (stageKey() !== resKey) makeResults(false); else { const b = res[0]; res = [b].concat(threeCards(stage)); resFx = newFx(); resultsDirty = true; }
+  if (stageKey() !== resKey) makeResults(false); else { const b = res[0]; res = [b].concat(threeCards(stage)); resultsDirty = true; }
   renderCards(); toast('랜덤 3장을 새로 만들었습니다.');
 });
 const curCanvas = () => (res[pickIdx] ? cardCanvas(pickIdx, st.exp) : null);   /* saved / copied / shared at the chosen size */
