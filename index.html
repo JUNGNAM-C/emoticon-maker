@@ -344,6 +344,7 @@ input,textarea,select{font-size:16px}
         <div class="btnrow">
           <button class="btn" id="selFlip" disabled>좌우반전</button>
           <button class="btn" id="selDup" disabled>복제</button>
+          <button class="btn" id="selSplit" disabled>글자<br>분해</button>
           <button class="btn" id="selUp" disabled>앞으로</button>
           <button class="btn" id="selDown" disabled>뒤로</button>
           <button class="btn" id="selDel" disabled>삭제</button>
@@ -1355,6 +1356,19 @@ function composeGlyphs(list, k, Q = 1) {
   place.forEach(([g, dx]) => paintStrokes(x, g.strokes.map(s => ({ color: s.color, width: s.width * k, pts: s.pts, sharp: s.sharp, prof: s.prof })), dx, M - y0));
   return c;
 }
+/* where each written character sits inside the composed phrase (1x units): [cx, cy, w, h] per glyph, plus the phrase size */
+function glyphCenters(list, k) {
+  const GAP = 10, SPACE = 70, M = 4, boxes = list.map(g => (g.space ? null : glyphBox(g, k))), live = boxes.filter(Boolean);
+  const y0 = Math.min(...live.map(b => b[1])), y1 = Math.max(...live.map(b => b[3]));
+  let cur = M, lastEnd = M; const out = [];
+  list.forEach((g, i) => {
+    if (g.space) { cur += SPACE; return; }
+    const b = boxes[i], w = b[2] - b[0], h = b[3] - b[1];
+    out.push({ g, cx: cur + w / 2, cy: M - y0 + b[1] + h / 2 });
+    cur += w; lastEnd = cur; cur += GAP;
+  });
+  return { list: out, cw: lastEnd + M, ch: y1 - y0 + 2 * M };
+}
 function renderStrip() {
   sctx.clearRect(0, 0, strip.width, strip.height);
   const col = composeGlyphs(glyphs, pen.thick / 100);
@@ -1886,6 +1900,7 @@ barDrag('#zvbar', '#zvthumb', 'y'); barDrag('#zhbar', '#zhthumb', 'x');
 function syncSel() {
   const on = !!(sel && stage.includes(sel));
   ['selS', 'selR', 'selFlip', 'selDup', 'selUp', 'selDown', 'selDel'].forEach(id => { $('#' + id).disabled = !on; });
+  $('#selSplit').disabled = !(on && sel.type === 'phrase' && sel.src.glyphs && sel.src.glyphs.filter(g => !g.space).length >= 2);
   $('#selHint').textContent = on ? ({ photo: '오린 이미지', phrase: '손글씨', text: '글씨' }[sel.type]) + '를 고르셨습니다. 끌어서 옮기고, 아래에서 크기와 각도를 바꾸세요.' : '화면에서 이미지나 글씨를 눌러 고르세요.';
   if (on) {
     $('#selS').value = Math.round(sel.s * 100); $('#selR').value = Math.round(sel.rot);
@@ -1949,6 +1964,20 @@ stageCv.addEventListener('wheel', e => { e.preventDefault(); const q = sRaw(e); 
 $('#selS').addEventListener('input', e => { if (sel) { sel.s = +e.target.value / 100; renderStage(); } });
 $('#selR').addEventListener('input', e => { if (sel) { sel.rot = +e.target.value; renderStage(); } });
 $('#selFlip').addEventListener('click', () => { if (sel) { sel.flip = !sel.flip; renderStage(); } });
+$('#selSplit').addEventListener('click', () => {
+  if (!sel || sel.type !== 'phrase' || !sel.src.glyphs) return;
+  const it = sel, ph = it.src, k = (ph.thick || 100) / 100, L = glyphCenters(ph.glyphs, k);
+  if (L.list.length < 2) return;
+  const f = fitSize(it)[0] / (ph.col.width / 3), a = it.rot * Math.PI / 180, news = [];
+  L.list.forEach(o => {
+    const gp = makePhrase([o.g], ph.thick || 100), tmp = { type: 'phrase', src: gp, s: 1 };
+    let lx = (o.cx - L.cw / 2) * f, ly = (o.cy - L.ch / 2) * f; if (it.flip) lx = -lx;
+    news.push({ id: ++itemSeq, type: 'phrase', src: gp, x: it.x + lx * Math.cos(a) - ly * Math.sin(a), y: it.y + lx * Math.sin(a) + ly * Math.cos(a),
+      s: (gp.col.width / 3) * f / fitSize(tmp)[0], rot: it.rot, flip: it.flip });
+  });
+  const i = stage.indexOf(it); stage.splice(i, 1, ...news); sel = news[0]; renderStage();
+  $('#stageNote').textContent = `글씨를 ${news.length}글자로 나눴습니다. 글자마다 크기, 각도, 위치를 바꿀 수 있습니다.`;
+});
 $('#selDup').addEventListener('click', () => { if (sel) { const c = Object.assign({}, sel, { id: ++itemSeq, x: sel.x + 14, y: sel.y + 14, _bm: null }); stage.push(c); sel = c; renderStage(); } });
 $('#selUp').addEventListener('click', () => { const i = stage.indexOf(sel); if (i >= 0 && i < stage.length - 1) { stage.splice(i, 1); stage.splice(i + 1, 0, sel); renderStage(); } });
 $('#selDown').addEventListener('click', () => { const i = stage.indexOf(sel); if (i > 0) { stage.splice(i, 1); stage.splice(i - 1, 0, sel); renderStage(); } });
