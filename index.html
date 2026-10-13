@@ -261,7 +261,7 @@ input,textarea,select{font-size:16px}
         <div class="pgrid" id="pgrid"></div>
         <p class="hint" id="pcount"></p>
         <p class="hint" id="wnote"></p>
-        <p class="hint">‘윤곽 그리기’로 자동 윤곽에서 시작해 점으로 고치거나 ‘다듬기’로 고칠 수 있습니다. 사진은 이 기기 안에서만 처리되며 서버로 전송되지 않습니다.</p>
+        <p class="hint">‘윤곽 그리기’로 20각형에서 시작해 점으로 고치거나 ‘다듬기’로 고칠 수 있습니다. 사진은 이 기기 안에서만 처리되며 서버로 전송되지 않습니다.</p>
       </div>
       <div class="card stack">
         <h2>보관함</h2>
@@ -456,7 +456,7 @@ input,textarea,select{font-size:16px}
     <button class="tb" id="ozout" aria-label="축소"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-5-5M8 11h6"/></svg>축소</button>
     <button class="tb" id="ofit" aria-label="전체 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체</button>
     <span class="tsep"></span>
-    <button class="tb" id="oauto" aria-label="자동 윤곽에서 다시 시작"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>자동</button>
+    <button class="tb" id="oauto" aria-label="20각형에서 다시 시작"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>20각</button>
     <button class="tb" id="oclear" aria-label="윤곽 모두 지우기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>초기화</button>
   </div>
   <div class="owrap">
@@ -477,7 +477,7 @@ input,textarea,select{font-size:16px}
     <p class="hint" id="omsg" role="status"></p>
     <span class="hint" id="ozoom"></span>
   </div>
-  <p class="hint" style="margin:0;text-align:center;max-width:760px;width:100%;margin-inline:auto">자동 윤곽이 먼저 나타납니다. 점을 끌어 옮기고, 선을 탭하면 점이 추가됩니다. 두 손가락으로 확대하고, 오른쪽 막대로 위아래, 아래쪽 막대로 좌우로 움직입니다.</p>
+  <p class="hint" style="margin:0;text-align:center;max-width:760px;width:100%;margin-inline:auto">이미지 중앙의 20각형이 먼저 나타납니다. 점을 끌어 옮기고, 선을 탭하면 점이 추가됩니다. 두 손가락으로 확대하고, 오른쪽 막대로 위아래, 아래쪽 막대로 좌우로 움직입니다.</p>
 </div>
 <script>
 'use strict';
@@ -1138,18 +1138,10 @@ function setOMode(m) {
   O.mode = m;
   $$('.otools [data-omode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.omode === m)));
 }
-function autoStart() {
-  const gs = Math.max(1, Math.round(Math.max(op.sw, op.sh) / 200));
-  const w = Math.ceil(op.sw / gs), h = Math.ceil(op.sh / gs), g = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    g[y * w + x] = op.mask[Math.min(op.sh - 1, y * gs) * op.sw + Math.min(op.sw - 1, x * gs)] ? 1 : 0;
-  }
-  const pts = traceOuter(g, w, h).map(([x, y]) => [(x + 0.5) * gs, (y + 0.5) * gs]);
-  if (pts.length < 8) { omsg('자동 윤곽을 찾지 못했습니다. 인물 둘레를 따라 점을 탭해 주세요.'); return; }
-  /* start with about 20-30 points: widen the tolerance until the outline is that short */
-  let eps = gs * 1.8, poly = simplifyClosed(pts, eps);
-  for (let i = 0; i < 40 && poly.length > 28; i++) { eps *= 1.2; poly = simplifyClosed(pts, eps); }
-  pushOH(); O.poly = poly; O.closed = true; omsg(`자동 윤곽 ${poly.length}점을 불러왔습니다. 점을 끌어서 고치거나 선 위를 눌러 점을 더하세요.`); odraw();
+function autoStart() {                      /* always start from a regular 20-gon in the middle of the image */
+  const cx = op.sw / 2, cy = op.sh / 2, r = Math.min(op.sw, op.sh) * 0.4, poly = [];
+  for (let i = 0; i < 20; i++) { const a = -Math.PI / 2 + i * Math.PI / 10; poly.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  pushOH(); O.poly = poly; O.closed = true; omsg('이미지 중앙의 20각형에서 시작합니다. 점을 끌어서 인물 둘레에 맞추고, 선 위를 눌러 점을 더하세요.'); odraw();
 }
 function applyOutline() {
   if (O.poly.length < 3) { omsg('윤곽을 3점 이상 그려 주세요.'); return; }
