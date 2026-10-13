@@ -2221,7 +2221,7 @@ function overlapCard(items) {
   return out;
 }
 /* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
-const R3 = { repeat: true, rowsMin: 4, rowsMax: 10, fillW: 360, gap: 0, hMin: 12, hStep: 4, rowW: 1080, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const R3 = { repeat: true, sizeMin: 0.5, sizeMax: 1.5, rowsMin: 4, rowsMax: 10, fillW: 360, gap: 0, hMin: 12, hStep: 4, rowW: 1080, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
 function chainCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
   const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
@@ -2230,16 +2230,21 @@ function chainCard(items) {
     let gap = R3.gap;
     if (R3.repeat) {                                    /* background text: rows from the very top, 4-10 rows fill the whole card, no row touches the next */
       const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0), pitch = 360 / nRows;
-      const hRef = Math.max(...txts.map(h1));
-      for (let k = 0; k < 4; k++) { H = Math.max(R3.hMin, pitch - gap); gap = 2 * st.border * Math.min(1, H / hRef) + R3.gap; }   /* thinner borders on smaller writing -> tighter rows; two borders never meet */
-      H = Math.max(R3.hMin, pitch - gap); gap = pitch - H;
+      const hRef = Math.max(...txts.map(h1)), mgOf = h => 2 * st.border * Math.min(1, h / hRef) + R3.gap;   /* least gap: two borders never meet */
+      let mg = 0; for (let k = 0; k < 4; k++) { H = Math.max(R3.hMin, pitch - mg); mg = mgOf(H); }
+      H = Math.max(R3.hMin, pitch - mg);                 /* size that exactly fills the card */
+      H = Math.max(R3.hMin, H * rr(R3.sizeMin, R3.sizeMax));   /* random size factor */
+      mg = mgOf(H);
+      if (nRows * (H + mg) > 360) { H = Math.max(R3.hMin, 360 / nRows - mg); mg = mgOf(H); }   /* never push the last row off the card */
+      const slack = Math.max(0, 360 - nRows * (H + mg)), wts = Array.from({ length: nRows - 1 }, () => rng() + 0.05), wsum = wts.reduce((a, b) => a + b, 0) || 1;
+      let cum = mg / 2;                                  /* random line gaps: least gap + a random share of the spare height */
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
         const row = []; let rw = 0;
         while (rw < R3.fillW && row.length < 400) {      /* keep chaining (random order, cycling) until the row spans the card width */
           const t = txts[idx % txts.length]; row.push({ t, w: w1(t) * H / h1(t) }); rw += row[row.length - 1].w; idx++;
         }
-        rows.push({ row, rw });
+        rows.push({ row, rw, yc: cum + H / 2 }); cum += H + mg + (r < nRows - 1 ? slack * wts[r] / wsum : 0);
       }
       totalH = rows.length * (H + gap);
     } else
@@ -2260,7 +2265,7 @@ function chainCard(items) {
       let x = 180 - r.rw / 2;                           /* centred; a long line runs past the card edges */
       r.row.forEach(c => {
         const q = withS(c.t, c.t.s); q.s = H / h1(c.t);
-        const [w] = fitSize(q); q.x = x + w / 2; q.y = top + ri * (H + gap) + (H + gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
+        const [w] = fitSize(q); q.x = x + w / 2; q.y = r.yc !== undefined ? r.yc : top + ri * (H + gap) + (H + gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
       });
     });
   }
