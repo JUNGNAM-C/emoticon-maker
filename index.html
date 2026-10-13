@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치·각도를 바꿔 서로 겹치지 않게 흩어 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 무작위 순서로 모두 같은 크기로 줄이 가득 찰 때까지 반복해 이어 붙이고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치·각도를 바꿔 서로 겹치지 않게 흩어 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2249,25 +2249,22 @@ function overlapCard(items) {
   return out;
 }
 /* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
-const R3 = { repeat: true, rowsMin: 4, rowsMax: 10, rowWMin: 360, rowWMax: 1080, hStart: 66, hStep: 4, hMin: 18, rowW: 1080, gap: 20, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const R3 = { repeat: true, rowsMin: 4, rowsMax: 10, fillW: 360, gap: 0, hMin: 12, hStep: 4, rowW: 1080, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
 function chainCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
   const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
   if (txts.length) {
     let H = R3.hStart, rows = [], totalH = 0;
     let gap = R3.gap;
-    if (R3.repeat) {                                    /* repeat the writing (random order, cycling); random row count, one shared row width that depends on the row count */
-      const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0);
-      H = Math.min(R3.hStart, Math.floor(R3.maxH / nRows) - gap);
-      if (H < R3.hMin) { H = R3.hMin; gap = Math.max(0, R3.maxH / nRows - H); }   /* many rows: shrink the writing, then the line gap, to stay inside the height */
-      const lim = R3.rowWMax - (R3.rowWMax - R3.rowWMin) * (nRows - R3.rowsMin) / Math.max(1, R3.rowsMax - R3.rowsMin);   /* one width for every row: widest at the fewest rows, narrowest at the most */
+    if (R3.repeat) {                                    /* background text: rows from the very top, 4-10 rows fill the whole card, no row touches the next */
+      const nRows = R3.rowsMin + ((rng() * (R3.rowsMax - R3.rowsMin + 1)) | 0), pitch = 360 / nRows;
+      gap = 2 * st.border + R3.gap;                     /* the borders of two rows never meet */
+      H = Math.max(R3.hMin, pitch - gap); gap = pitch - H;
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
         const row = []; let rw = 0;
-        for (let g = 0; g < 400; g++) {
-          const t = txts[idx % txts.length], w = w1(t) * H / h1(t);
-          if (row.length && rw + w > lim) break;
-          row.push({ t, w }); rw += w; idx++;
+        while (rw < R3.fillW && row.length < 400) {      /* keep chaining (random order, cycling) until the row spans the card width */
+          const t = txts[idx % txts.length]; row.push({ t, w: w1(t) * H / h1(t) }); rw += row[row.length - 1].w; idx++;
         }
         rows.push({ row, rw });
       }
@@ -2285,7 +2282,7 @@ function chainCard(items) {
       if (totalH <= R3.maxH) break;
     }
     H = Math.max(H, R3.hMin);
-    const top = R3.bottom - totalH;
+    const top = R3.repeat ? 0 : R3.bottom - totalH;
     rows.forEach((r, ri) => {
       let x = 180 - r.rw / 2;                           /* centred; a long line runs past the card edges */
       r.row.forEach(c => {
