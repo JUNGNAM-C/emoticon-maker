@@ -406,7 +406,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 1~1.2배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 제자리에 배경으로 고정되고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 격자선을 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2200,17 +2200,28 @@ const rr = (a, b) => a + rng() * (b - a);
 const withS = (it, s) => Object.assign({}, it, { s, _bm: null, _bmk: '' });
 const isImg = it => it.type === 'photo' || it.type === 'shape';
 const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
-/* 1) grid: the card is cut into N x N cells (N = 2..5); every cell gets a random object 1-1.2x the cell size. Writing keeps its direction; images may mirror horizontally / vertically */
-const R2 = { gridMin: 2, gridMax: 5, kMin: 1, kMax: 1.2, mirrorH: 0.5, mirrorV: 0.5 };
+/* 1) grid: the card is cut into N x N cells (N = 2..5); every cell gets a random object, longest side 0.5-0.9 of the cell (never past it). Writing keeps its direction; images may mirror horizontally / vertically.
+      Borderless objects are the decoration: 2-10 small ones in a row along one inner grid line (dotted-line look), drawn behind everything. */
+const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.15, decorKMax: 0.3, decorFill: 0.8 };
 function overlapCard(items) {
-  const pool = items;
-  if (!pool.length) return [];
-  const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N, out = [];
+  const pool = items.filter(it => !isFixed(it)), decor = items.filter(isFixed), out = [];
+  const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N;
+  if (decor.length) {                                       /* dotted line of decoration along an inner grid line */
+    const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M, vert = rng() < 0.5;
+    const line = (1 + ((rng() * (N - 1)) | 0)) * cs, size = Math.min(cs * rr(R2.decorKMin, R2.decorKMax), step * R2.decorFill);
+    for (let j = 0; j < M; j++) {
+      const src = decor[(rng() * decor.length) | 0], q = withS(src, 1), m = Math.max(...fitSize(q));
+      q.s = size / m; q.rot = 0; q.flip = false;
+      q.x = vert ? line : (j + 0.5) * step; q.y = vert ? (j + 0.5) * step : line;
+      out.push(q);
+    }
+  }
+  if (!pool.length) return out;
   let seq = [];
   while (seq.length < N * N) seq = seq.concat(pool.slice().sort(() => rng() - 0.5));   /* every object appears before any repeats */
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const src = seq[r * N + c], q = withS(src, 1), m = Math.max(...fitSize(q));
-    q.s = cs * rr(R2.kMin, R2.kMax) / m;      /* longest side = 1-1.2 cells */
+    q.s = cs * rr(R2.kMin, R2.kMax) / m;
     q.x = c * cs + cs / 2; q.y = r * cs + cs / 2; q.rot = 0; q.flip = false;
     if (isImg(src)) {                                       /* mirror only: H = flip, V = turn 180 + flip */
       const h = rng() < R2.mirrorH, v = rng() < R2.mirrorV;
@@ -2284,7 +2295,7 @@ const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects sta
 function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
-  return [cloneItems(items), mix(overlapCard), mix(chainCard)];
+  return [cloneItems(items), overlapCard(items), mix(chainCard)];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
