@@ -215,6 +215,10 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 .fold h2{margin:0}
 .tri{display:inline-grid;place-items:center;width:28px;height:28px;border:2px solid #000;background:#ffec27;font-size:14px;line-height:1;box-shadow:2px 2px 0 #000;transition:transform .15s}
 .fold[aria-expanded="false"] .tri{transform:rotate(-90deg)}
+.zrow{display:flex;gap:8px;align-items:flex-start;width:100%;max-width:500px;margin-inline:auto}
+.zbtns{flex:none;width:46px;display:flex;flex-direction:column;gap:8px}
+.zbtns .btn{width:100%;padding:12px 0;font-size:12px;text-align:center}
+.zrow .zwrap{flex:1 1 0;min-width:0;margin:0}
 .zwrap{display:grid;grid-template-columns:minmax(0,1fr) 24px;grid-template-rows:auto 24px;width:100%;max-width:446px;margin-inline:auto}
 .zwrap .view{width:100%;max-width:none;margin:0}
 .zv,.zh{position:relative;background:#1d2b53;border:2px solid #000;touch-action:none}
@@ -328,19 +332,19 @@ input,textarea,select{font-size:16px}
         <p class="hint">여기에 올린 배치가 결과의 기본 카드가 됩니다. 팔레트에서 눌러 가져오고 화면에서 끌어 옮기세요. 아래 확대 버튼과 스크롤 막대로 화면을 키워 보며 맞출 수 있습니다.</p>
         <label class="rng line"><span>크기</span><input type="range" id="selS" min="10" max="400" step="10" value="100" disabled><output></output></label>
         <label class="rng line"><span>각도</span><input type="range" id="selR" min="-180" max="180" step="15" value="0" disabled><output></output></label>
-        <div class="zwrap">
-          <div class="view" id="stageView"><canvas id="stage" width="720" height="720" aria-label="꾸미기 화면"></canvas></div>
-          <div class="zv" id="zvbar" aria-label="세로 스크롤"><div class="zthumb" id="zvthumb"></div></div>
-          <div class="zh" id="zhbar" aria-label="가로 스크롤"><div class="zthumb" id="zhthumb"></div></div>
-          <div class="zc"></div>
+        <div class="zrow">
+          <div class="zbtns">
+            <button class="btn" id="zOut" aria-label="축소">－</button>
+            <button class="btn" id="zFit" aria-label="100%로 되돌리기">100%</button>
+            <button class="btn" id="zIn" aria-label="확대">＋</button>
+          </div>
+          <div class="zwrap">
+            <div class="view" id="stageView"><canvas id="stage" width="720" height="720" aria-label="꾸미기 화면"></canvas></div>
+            <div class="zv" id="zvbar" aria-label="세로 스크롤"><div class="zthumb" id="zvthumb"></div></div>
+            <div class="zh" id="zhbar" aria-label="가로 스크롤"><div class="zthumb" id="zhthumb"></div></div>
+            <div class="zc"></div>
+          </div>
         </div>
-        <div class="btnrow">
-          <button class="btn" id="zOut" aria-label="축소">－</button>
-          <button class="btn" id="zFit">100%</button>
-          <button class="btn" id="zIn" aria-label="확대">＋</button>
-        </div>
-        <h3 class="sub">선택한 것 바꾸기</h3>
-        <p class="hint" id="selHint">화면에서 이미지나 글씨를 눌러 고르세요.</p>
         <div class="btnrow">
           <button class="btn" id="selFlip" disabled>좌우반전</button>
           <button class="btn" id="selDup" disabled>복제</button>
@@ -349,6 +353,8 @@ input,textarea,select{font-size:16px}
           <button class="btn" id="selDown" disabled>뒤로</button>
           <button class="btn" id="selDel" disabled>삭제</button>
         </div>
+        <h3 class="sub">선택한 것 바꾸기</h3>
+        <p class="hint" id="selHint">화면에서 이미지나 글씨를 눌러 고르세요.</p>
         <button class="btn" id="stageNew">새로 시작</button>
         <p class="hint" id="stageNote" role="status"></p>
       </div>
@@ -1856,6 +1862,8 @@ function renderStage() {
   const x = sctx2; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, SS, SS);
   x.setTransform(SV.z, 0, 0, SV.z, SV.ox, SV.oy);
   drawItems(x, stage, SS);
+  x.save(); x.strokeStyle = '#ff004d'; x.lineWidth = 3 / SV.z; x.setLineDash([14 / SV.z, 9 / SV.z]);   /* the 100% area = the card */
+  x.strokeRect(1.5 / SV.z, 1.5 / SV.z, SS - 3 / SV.z, SS - 3 / SV.z); x.restore();
   if (sel && stage.includes(sel)) {
     const bm = itemBitmap(sel, SS);
     x.save(); x.translate(sel.x * 2, sel.y * 2); x.rotate(sel.rot * Math.PI / 180);
@@ -1870,6 +1878,17 @@ function renderStage() {
     x.restore();
   }
   x.setTransform(1, 0, 0, 1, 0, 0);
+  if (SV.z > 1.001) {                                         /* mini map: whole 100% card area (red) and the part in view (yellow) */
+    const M = 12, W = 170, m = W / SS;
+    x.save(); x.beginPath(); x.rect(M, M, W, W); x.clip();
+    x.fillStyle = 'rgba(255,241,232,.88)'; x.fillRect(M, M, W, W);
+    x.setTransform(m, 0, 0, m, M, M); drawItems(x, stage, SS);
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.lineWidth = 3; x.strokeStyle = '#ff004d'; x.setLineDash([6, 4]); x.strokeRect(M + 1.5, M + 1.5, W - 3, W - 3);
+    x.setLineDash([]); x.lineWidth = 3; x.strokeStyle = '#000'; x.strokeRect(M + (-SV.ox / SV.z) * m, M + (-SV.oy / SV.z) * m, SS / SV.z * m, SS / SV.z * m);
+    x.lineWidth = 1.5; x.strokeStyle = '#ffec27'; x.strokeRect(M + (-SV.ox / SV.z) * m, M + (-SV.oy / SV.z) * m, SS / SV.z * m, SS / SV.z * m);
+    x.restore(); x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeRect(M, M, W, W);
+  }
   updateZBars(); $('#zFit').textContent = Math.round(SV.z * 100) + '%';
   syncSel();
 }
