@@ -1256,8 +1256,13 @@ function drawPad() {
   pctx.strokeStyle = '#5f574f'; pctx.lineWidth = 2; pctx.setLineDash([8, 8]);
   const m = 14, W = pad.width, H = pad.height;
   pctx.strokeRect(m, m, W - 2 * m, H - 2 * m);                 /* dashed square frame */
-  pctx.beginPath(); pctx.moveTo(W / 2, m); pctx.lineTo(W / 2, H - m);   /* dashed cross */
-  pctx.moveTo(m, H / 2); pctx.lineTo(W - m, H / 2); pctx.stroke();
+  pctx.save(); pctx.globalAlpha = 0.4; pctx.lineWidth = 1; pctx.setLineDash([6, 7]);   /* thin, faint 3x3 (井) guide */
+  pctx.beginPath();
+  for (let i = 1; i <= 2; i++) {
+    const vx = m + (W - 2 * m) * i / 3, vy = m + (H - 2 * m) * i / 3;
+    pctx.moveTo(vx, m); pctx.lineTo(vx, H - m); pctx.moveTo(m, vy); pctx.lineTo(W - m, vy);
+  }
+  pctx.stroke(); pctx.restore();
   pctx.setLineDash([]);
   paintStrokes(pctx, strokes.concat(padDraw ? [padDraw] : []), 0, 0);
   $('#padAdd').disabled = !strokes.length;
