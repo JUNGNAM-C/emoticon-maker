@@ -391,7 +391,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 바꾼 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 만화풍(윤곽선·단순한 색 면)으로 바꾼 뒤 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 이미지를 크기·위치를 바꿔 겹쳐 놓고 그 위에 글씨를 올린 카드, 랜덤3은 글씨를 모두 같은 크기로 이어 붙이고 이미지를 하나 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1908,8 +1908,63 @@ function pixelate(src, o) {
   });
   return out;
 }
+/* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
+const CARTOON = { sigma: 34, levels: 6, sat: 1.25, edge: 70, line: [20, 16, 40] };
+function cartoonize(src, B) {                          /* B = outline thickness in px (one dot after pixelation) */
+  const S = src.width, ctx = src.getContext('2d', { willReadFrequently: true }), img = ctx.getImageData(0, 0, S, S), d = img.data, N = S * S;
+  const R = 1, lut = new Float32Array(766);
+  for (let i = 0; i < 766; i++) lut[i] = Math.exp(-(i * i) / (2 * CARTOON.sigma * CARTOON.sigma * 3));
+  const sp = []; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) sp.push([dx, dy, Math.exp(-(dx * dx + dy * dy) / (2 * (R * 0.8 + 0.4) ** 2))]);
+  let a = d, bb = new Uint8ClampedArray(d.length);
+  for (let pass = 0; pass < 2; pass++) {              /* edge-preserving smoothing (bilateral) */
+    bb.set(a);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const i = (y * S + x) * 4; if (a[i + 3] < 8) continue;
+      let sr = 0, sg = 0, sb = 0, sw = 0; const r0 = a[i], g0 = a[i + 1], b0 = a[i + 2];
+      for (const [dx, dy, w0] of sp) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= S || yy >= S) continue;
+        const j = (yy * S + xx) * 4; if (a[j + 3] < 8) continue;
+        const w = w0 * lut[Math.abs(a[j] - r0) + Math.abs(a[j + 1] - g0) + Math.abs(a[j + 2] - b0)];
+        sr += a[j] * w; sg += a[j + 1] * w; sb += a[j + 2] * w; sw += w;
+      }
+      bb[i] = sr / sw; bb[i + 1] = sg / sw; bb[i + 2] = sb / sw;
+    }
+    const t = a; a = bb; bb = t;
+  }
+  const lum = new Float32Array(N);
+  for (let p = 0; p < N; p++) lum[p] = a[p * 4 + 3] < 128 ? -1 : 0.299 * a[p * 4] + 0.587 * a[p * 4 + 1] + 0.114 * a[p * 4 + 2];
+  const edge = new Uint8Array(N);
+  for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) {   /* outlines: strong brightness steps and the silhouette */
+    const p = y * S + x, l = lum[p]; if (l < 0) continue;
+    if (lum[p - 1] < 0 || lum[p + 1] < 0 || lum[p - S] < 0 || lum[p + S] < 0) { edge[p] = 1; continue; }
+    const gx = lum[p + 1] - lum[p - 1], gy = lum[p + S] - lum[p - S];
+    if (Math.abs(gx) + Math.abs(gy) > CARTOON.edge) edge[p] = 1;
+  }
+  const L = CARTOON.levels - 1;
+  for (let p = 0; p < N; p++) {                        /* colour steps + a little more saturation */
+    const i = p * 4; if (a[i + 3] < 8) continue;
+    const gr = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2];
+    for (let c = 0; c < 3; c++) { const v = Math.max(0, Math.min(255, gr + (a[i + c] - gr) * CARTOON.sat)); a[i + c] = Math.round(v / 255 * L) * 255 / L; }
+  }
+  const rad = Math.max(0, Math.floor((B - 1) / 2)), e2 = new Uint8Array(N);
+  if (rad) {                                           /* thicken the outline to one dot */
+    const t = new Uint8Array(N);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const xx = x + k; if (xx >= 0 && xx < S && edge[y * S + xx]) m = 1; } t[y * S + x] = m; }
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { let m = 0; for (let k = -rad; k <= rad && !m; k++) { const yy = y + k; if (yy >= 0 && yy < S && t[yy * S + x]) m = 1; } e2[y * S + x] = m; }
+  } else e2.set(edge);
+  for (let p = 0; p < N; p++) if (e2[p] && a[p * 4 + 3] >= 128) { const i = p * 4; a[i] = CARTOON.line[0]; a[i + 1] = CARTOON.line[1]; a[i + 2] = CARTOON.line[2]; a[i + 3] = 255; }
+  const out = mkCanvas(S, S); out.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(a), S, S), 0, 0);
+  return out;
+}
+/* card 1 only: cartoon first, then pixel art with fixed values */
 const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };   /* card 1 only, fixed */
-function cardCanvas(i, S) { const c = drawCard(res[i], S); return i === 1 ? pixelate(c, PX_FIX) : c; }
+function cardCanvas(i, S) {
+  if (i !== 1) return drawCard(res[i], S);
+  const B = Math.max(1, Math.round(PX_FIX.dot * S / 360)), runs = [], out = mkCanvas(S, S), x = out.getContext('2d');
+  res[i].forEach(it => { const k = isImg(it); if (runs.length && runs[runs.length - 1].k === k) runs[runs.length - 1].list.push(it); else runs.push({ k, list: [it] }); });
+  runs.forEach(r => { const c = drawCard(r.list, S); x.drawImage(r.k ? cartoonize(c, B) : c, 0, 0); });   /* only images get the cartoon look; writing stays clean */
+  return pixelate(out, PX_FIX);
+}
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
 function clampView() {
@@ -2200,7 +2255,7 @@ function chainCard(items) {
   }
   return out;
 }
-const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결'];
+const RTAGS = ['기본', '만화+픽셀', '이미지 랜덤', '글씨 연결'];
 const threeCards = items => [cloneItems(items), overlapCard(items), chainCard(items)];   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
@@ -2228,7 +2283,7 @@ function renderCards() {
   ['shareCard', 'saveCard', 'copyCard'].forEach(id => { $('#' + id).disabled = false; });
   updateInfo();
 }
-function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 점 크기 4, 색 64개, 채도 100%.' : ''}` : ''; }
+function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 만화 변환 후 픽셀아트(점 크기 4, 색 64개, 채도 100%).' : ''}` : ''; }
 $('#shuffle').addEventListener('click', () => {
   if (!stage.length) { renderCards(); return; }
   if (stageKey() !== resKey) makeResults(false); else { const b = res[0]; res = [b].concat(threeCards(stage)); resultsDirty = true; }
