@@ -2259,15 +2259,15 @@ function chainCard(items) {
       H = Math.max(R3.hMin, H * rr(R3.sizeMin, R3.sizeMax));   /* random size factor */
       mg = mgOf(H);
       if (nRows * (H + mg) > 360) { H = Math.max(R3.hMin, 360 / nRows - mg); mg = mgOf(H); }   /* never push the last row off the card */
-      const slack = Math.max(0, 360 - nRows * (H + mg)), wts = Array.from({ length: nRows - 1 }, () => rng() + 0.05), wsum = wts.reduce((a, b) => a + b, 0) || 1;
-      let cum = mg / 2;                                  /* random line gaps: least gap + a random share of the spare height */
+      const gapEq = mg + Math.max(0, 360 - nRows * (H + mg)) / Math.max(1, nRows - 1);   /* every gap between rows is the same: least gap + an equal share of the spare height */
+      let cum = mg / 2;
       let idx = 0;
       for (let r = 0; r < nRows; r++) {
         const row = []; let rw = 0;
         while (rw < R3.fillW && row.length < 400) {      /* keep chaining (random order, cycling) until the row spans the card width */
           const t = txts[idx % txts.length]; row.push({ t, w: w1(t) * H / h1(t) }); rw += row[row.length - 1].w; idx++;
         }
-        rows.push({ row, rw, yc: cum + H / 2 }); cum += H + mg + (r < nRows - 1 ? slack * wts[r] / wsum : 0);
+        rows.push({ row, rw, yc: cum + H / 2 }); cum += H + gapEq;
       }
       totalH = rows.length * (H + gap);
     } else
