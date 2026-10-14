@@ -1996,10 +1996,11 @@ function pixelate(src, o) {
     }
     if (!sa || sa / (n * 255) < 0.4) { blocks.push(null); continue; }
     let c = [r / sa, g / sa, b / sa];
-    if (sat < 1) { const gr = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; c = c.map(v => gr + (v - gr) * sat); }
+    if (sat < 1) { const gr = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; c = c.map(v => Math.max(0, Math.min(255, gr + (v - gr) * sat))); }
+    else if (sat > 1) { const gr = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; c = c.map(v => Math.max(0, Math.min(255, gr + (v - gr) * sat))); }
     c = c.map(Math.round); blocks.push(c); cols.push(c);
   }
-  const pal = o.pal === 'auto' ? autoPalette(cols, o.cnt) : PRESETS[o.pal].map(hex3);
+  const pal = o.pal === 'auto' ? autoPalette(cols, o.cnt) : o.pal === 'pop' ? POP_PAL.map(hex3) : PRESETS[o.pal].map(hex3);
   const out = mkCanvas(S, S), x = out.getContext('2d'), memo = new Map();
   blocks.forEach((c, i) => {
     if (!c) return;
@@ -2012,7 +2013,8 @@ function pixelate(src, o) {
 }
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
 /* card 1 only: the default layout as pixel art with fixed values */
-const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };
+const POP_PAL = ['#e8105a', '#ff2d6f', '#ff7a00', '#ffc400', '#ffe94d', '#1faa2e', '#7ed321', '#00b7eb', '#1e5fd6', '#16206b', '#7b2fbe', '#b455d8', '#ffffff', '#111111', '#ff9ec4', '#c8e8ff', '#8a4b1f', '#e8d3a8'];
+const PX_FIX = { dot: 8, cnt: 18, pal: 'pop', sat: 150 };
 function pixelBgCard(items, S) {
   const c = mkCanvas(S, S), x = c.getContext('2d'), ph = items.find(it => it.type === 'photo' && it.src && it.src.bg);
   if (ph) { x.imageSmoothingQuality = 'high'; x.drawImage(ph.src.bg, 0, 0, S, S); }
