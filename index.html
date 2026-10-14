@@ -1998,9 +1998,10 @@ function pixelate(src, o) {
     let c = [r / sa, g / sa, b / sa];
     if (sat < 1) { const gr = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; c = c.map(v => Math.max(0, Math.min(255, gr + (v - gr) * sat))); }
     else if (sat > 1) { const gr = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; c = c.map(v => Math.max(0, Math.min(255, gr + (v - gr) * sat))); }
+    if (o.pastel) c = c.map(v => v + (255 - v) * o.pastel);
     c = c.map(Math.round); blocks.push(c); cols.push(c);
   }
-  const pal = o.pal === 'auto' ? autoPalette(cols, o.cnt) : o.pal === 'pop' ? POP_PAL.map(hex3) : PRESETS[o.pal].map(hex3);
+  const pal = o.pal === 'auto' ? autoPalette(cols, o.cnt) : o.pal === 'pop' ? POP_PAL.slice(0, o.cnt).map(hex3) : PRESETS[o.pal].map(hex3);
   const out = mkCanvas(S, S), x = out.getContext('2d'), memo = new Map();
   blocks.forEach((c, i) => {
     if (!c) return;
@@ -2013,13 +2014,19 @@ function pixelate(src, o) {
 }
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
 /* card 1 only: the default layout as pixel art with fixed values */
-const POP_PAL = ['#e8105a', '#ff2d6f', '#ff7a00', '#ffc400', '#ffe94d', '#1faa2e', '#7ed321', '#00b7eb', '#1e5fd6', '#16206b', '#7b2fbe', '#b455d8', '#ffffff', '#111111', '#ff9ec4', '#c8e8ff', '#8a4b1f', '#e8d3a8'];
+const POP_PAL = ['#e8105a', '#ff2d6f', '#ff7a00', '#ffc400', '#ffe94d', '#1faa2e', '#7ed321', '#00b7eb', '#1e5fd6', '#16206b', '#7b2fbe', '#b455d8', '#ffffff', '#111111', '#ff9ec4', '#c8e8ff', '#8a4b1f', '#e8d3a8', '#ff5a1f', '#ffd9a0', '#00d1b2', '#0b8a4a', '#4a90ff', '#ff66c4', '#d4145a', '#5b2a86', '#f2f2f2', '#555555', '#a8e063', '#ff8a8a'];
+const PX_STYLES = ['팝아트', '파스텔톤', '색 원본'];
+function pxParams() {          /* card 1: dot 2~16, 16~32 colours, random style */
+  const st = (rng() * 3) | 0, dot = 2 + ((rng() * 15) | 0), cnt = 16 + ((rng() * 17) | 0);
+  return st === 0 ? { dot, cnt, pal: 'pop', sat: 150 } : st === 1 ? { dot, cnt, pal: 'auto', sat: 70, pastel: .5 } : { dot, cnt, pal: 'auto', sat: 100 };
+}
 const PX_FIX = { dot: 8, cnt: 18, pal: 'pop', sat: 150 };
 function pixelBgCard(items, S) {
+  const px = items.px || PX_FIX;
   const c = mkCanvas(S, S), x = c.getContext('2d'), ph = items.find(it => it.type === 'photo' && it.src && it.src.bg);
   if (ph) {                                              /* only the leftover background becomes pixel art */
     const b = mkCanvas(S, S); b.getContext('2d').drawImage(ph.src.bg, 0, 0, S, S);
-    x.drawImage(pixelate(b, PX_FIX), 0, 0);
+    x.drawImage(pixelate(b, px), 0, 0);
   }
   drawItems(x, items, S); return c;
 }
@@ -2550,7 +2557,8 @@ function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
   const rg = cloneItems(items); rg.ring = ringParams(); rg.deco = ringDeco(items);
-  return [cloneItems(items), overlapCard(items), mix(chainCard), mix(poissonCard), rg];
+  const c1 = cloneItems(items); c1.px = pxParams();
+  return [c1, overlapCard(items), mix(chainCard), mix(poissonCard), rg];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
