@@ -450,7 +450,6 @@ input,textarea,select{font-size:16px}
         </div>
         <div class="btnrow">
           <button class="btn primary" id="shareCard">카카오톡 공유</button>
-          <button class="btn" id="saveCard">저장</button>
           <button class="btn" id="copyCard">복사</button>
         </div>
       </div>
@@ -2574,7 +2573,7 @@ function renderCards() {
   resultsDirty = false;
   const g = $('#rgrid'); g.textContent = '';
   $('#emptyMsg').hidden = stage.length > 0;
-  if (!stage.length) { $('#cardInfo').textContent = ''; ['shareCard', 'saveCard', 'copyCard'].forEach(id => { $('#' + id).disabled = true; }); return; }
+  if (!stage.length) { $('#cardInfo').textContent = ''; ['shareCard', 'copyCard'].forEach(id => { $('#' + id).disabled = true; }); return; }
   res.forEach((items, i) => {
     const b = el('button', 'rcard'), cv = cardCanvas(i, 360);
     b.type = 'button'; b.setAttribute('aria-pressed', String(i === pickIdx)); b.setAttribute('aria-label', i ? `랜덤 카드 ${i}` : '기본 카드');
@@ -2583,7 +2582,7 @@ function renderCards() {
     b.addEventListener('click', () => { pickIdx = i; $$('.rcard', g).forEach((x, j) => x.setAttribute('aria-pressed', String(j === i))); updateInfo(); });
     g.append(b);
   });
-  ['shareCard', 'saveCard', 'copyCard'].forEach(id => { $('#' + id).disabled = false; });
+  ['shareCard', 'copyCard'].forEach(id => { $('#' + id).disabled = false; });
   updateInfo();
 }
 function updateInfo() { $('#cardInfo').textContent = stage.length ? `${pickIdx ? '랜덤 ' + pickIdx + ' (' + RTAGS[pickIdx] + ')' : '기본'} 카드를 골랐습니다.${pickIdx === 1 ? ' 픽셀아트(점 크기 4, 색 64개, 채도 100%).' : ''}` : ''; }
@@ -2606,7 +2605,7 @@ async function emoSave() {
     await renderEmoLib(); toast('이모티콘 보관함에 넣었습니다.');
   } catch (e) { toast('보관하지 못했습니다.'); }
 }
-async function emoLoad(rec) {
+async function emoLoad(rec, regen) {
   const imgs = await libAll(), phs = await phAll(); let miss = 0;
   stage.length = 0; sel = null;
   for (const d of rec.items) {
@@ -2625,6 +2624,7 @@ async function emoLoad(rec) {
   const bi = $('#border'); if (bi) { bi.value = rec.border; bi.dispatchEvent(new Event('input')); }
   const bb = $(`#bstyles [data-bs="${rec.bstyle}"]`); if (bb) bb.click();
   sel = null; renderStage(); markStale();
+  if (regen) { makeResults(false); renderCards(); toast(miss ? `보관함에서 지워진 개체 ${miss}개는 빠졌습니다.` : '불러와서 결과를 새로 만들었습니다.'); return; }
   $('.tab[data-i="2"]').click();
   $('#stageNote').textContent = miss ? `보관함에서 지워진 개체 ${miss}개는 빠졌습니다.` : '보관한 이모티콘을 꾸미기로 불러왔습니다.';
 }
@@ -2636,7 +2636,9 @@ async function renderEmoLib() {
     const box = el('div', 'emot'), im = new Image(), row = el('div', 'row');
     im.src = it.thumb; im.alt = '보관한 이모티콘';
     const mk = (label, fn) => { const b = el('button', 'btn mini'); b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); row.append(b); };
-    mk('열기', () => emoLoad(it));
+    im.addEventListener('click', () => emoLoad(it, true)); im.style.cursor = 'pointer';
+    mk('선택', () => emoLoad(it, true));
+    mk('수정', () => emoLoad(it));
     mk('삭제', async () => { try { await emoDel(it.id); await renderEmoLib(); } catch (e) { toast('지우지 못했습니다.'); } });
     box.append(im, row); host.append(box);
   });
@@ -2653,9 +2655,6 @@ async function saveBlob(blob, name) {
   try { downloadBlob(blob, name); toast('저장했습니다. 다운로드 폴더나 사진첩을 확인해 주세요.'); }
   catch (e) { toast('저장하지 못했습니다. 다시 시도해 주세요.'); }
 }
-$('#saveCard').addEventListener('click', async () => {
-  const c = curCanvas(); if (c) saveBlob(await toBlob(c), `이모티콘-${pickIdx ? '랜덤' + pickIdx : '기본'}.png`);
-});
 $('#copyCard').addEventListener('click', async () => {
   const c = curCanvas(); if (!c) return;
   try {
