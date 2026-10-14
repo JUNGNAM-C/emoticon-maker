@@ -1625,11 +1625,45 @@ function thumbOf(p) {
   x.drawImage(cutC, bx.x, bx.y, bx.w, bx.h, (200 - bx.w * k) / 2, (200 - bx.h * k) / 2, bx.w * k, bx.h * k);
   return cv;
 }
+/* leftover background (what the cut-out removed) -> small square image with the hole filled by neighbours */
+function bgBlob(p) {
+  if (p.alpha || !p.mask) return null;
+  const N = 96, W = p.sw, H = p.sh, m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2, d = p.srcData;
+  const acc = new Float32Array(N * N * 3), cnt = new Float32Array(N * N);
+  for (let y = 0; y < H; y++) {
+    const cy = Math.floor((y - oy) / m * N); if (cy < 0 || cy >= N) continue;
+    for (let x = 0; x < W; x++) {
+      const cx = Math.floor((x - ox) / m * N); if (cx < 0 || cx >= N) continue;
+      const i = y * W + x; if (p.mask[i] > 127) continue;
+      const c = cy * N + cx, j = i * 4; acc[c * 3] += d[j]; acc[c * 3 + 1] += d[j + 1]; acc[c * 3 + 2] += d[j + 2]; cnt[c]++;
+    }
+  }
+  const rgb = new Float32Array(N * N * 3), has = new Uint8Array(N * N); let left = 0, have = 0;
+  for (let c = 0; c < N * N; c++) if (cnt[c] > 0) { has[c] = 1; have++; for (let k = 0; k < 3; k++) rgb[c * 3 + k] = acc[c * 3 + k] / cnt[c]; } else left++;
+  if (have < N * N * 0.03) return null;                 /* nothing left over */
+  for (let it = 0; it < 400 && left > 0; it++) {         /* grow into the hole */
+    const nh = has.slice(), nr = rgb.slice();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const c = y * N + x; if (has[c]) continue;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= N || yy >= N) continue;
+        const q = yy * N + xx; if (!has[q]) continue; r += rgb[q * 3]; g += rgb[q * 3 + 1]; b += rgb[q * 3 + 2]; n++;
+      }
+      if (n) { nh[c] = 1; nr[c * 3] = r / n; nr[c * 3 + 1] = g / n; nr[c * 3 + 2] = b / n; left--; }
+    }
+    has.set(nh); rgb.set(nr);
+  }
+  const cv = mkCanvas(N, N), x = cv.getContext('2d'), im = x.createImageData(N, N);
+  for (let c = 0; c < N * N; c++) { im.data[c * 4] = rgb[c * 3]; im.data[c * 4 + 1] = rgb[c * 3 + 1]; im.data[c * 4 + 2] = rgb[c * 3 + 2]; im.data[c * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  return canvasBlob(cv, 'image/png');
+}
 /* "이미지 저장": the outlined cut-out (offset / wave etc. included) goes into the 보관함 as a transparent PNG */
 async function savePng(p, thumbCanvas, quiet) {
   try {
-    const png = await cutPng(p);
-    await libPut({ kind: 'png', png, w: p.cutBox.w, h: p.cutBox.h, thumb: (thumbCanvas || thumbOf(p)).toDataURL('image/png'), t: Date.now() });
+    const png = await cutPng(p), bg = await bgBlob(p);
+    await libPut({ kind: 'png', png, bg, w: p.cutBox.w, h: p.cutBox.h, thumb: (thumbCanvas || thumbOf(p)).toDataURL('image/png'), t: Date.now() });
     if (!quiet) { toast('보관함에 이미지로 저장했습니다.'); await renderLib(); }
     return true;
   } catch (e) { toast('보관함에 저장하지 못했습니다.'); return false; }
@@ -1745,7 +1779,11 @@ async function libLoad(it) {
   p.poly = it.poly || null; p.shape = it.shape || null; p.layerKey = '';
   return p;
 }
-async function libLoadPng(it) { const img = await loadImg(it.png); return makePhoto(img, img.naturalWidth, img.naturalHeight, false); }
+async function libLoadPng(it) {
+  const img = await loadImg(it.png), p = makePhoto(img, img.naturalWidth, img.naturalHeight, false);
+  if (it.bg) { try { p.bg = await loadImg(it.bg); } catch (e) { /* none */ } }
+  return p;
+}
 async function libUse(items) {
   let n = 0;
   for (const it of items) {
@@ -1975,7 +2013,12 @@ function pixelate(src, o) {
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
 /* card 1 only: the default layout as pixel art with fixed values */
 const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };
-function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FIX) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
+function pixelBgCard(items, S) {
+  const c = mkCanvas(S, S), x = c.getContext('2d'), ph = items.find(it => it.type === 'photo' && it.src && it.src.bg);
+  if (ph) { x.imageSmoothingQuality = 'high'; x.drawImage(ph.src.bg, 0, 0, S, S); }
+  drawItems(x, items, S); return c;
+}
+function cardCanvas(i, S) { return i === 1 ? pixelate(pixelBgCard(res[i], S), PX_FIX) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
 function ringWithDeco(i, S) { const o = ringCard(drawCard(res[i], S), res[i].ring); if (res[i].deco) drawItems(o.getContext('2d'), res[i].deco, S); return o; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
