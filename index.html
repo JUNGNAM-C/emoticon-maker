@@ -208,7 +208,7 @@ input[type=range]{accent-color:var(--n)}
 .btnrow .btn{flex:1 1 0;min-width:0;padding:6px 0;font-size:11px;letter-spacing:-0.5px;line-height:1.2;white-space:normal;word-break:keep-all;text-align:center}
 
 .sub{margin:6px 0 0;font:400 14px/1.3 var(--f-14),system-ui,sans-serif}
-.pal{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;min-height:48px}
+.pal{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,68px);grid-auto-columns:68px;gap:6px;overflow-x:auto;padding:2px 2px 8px;min-height:48px}
 .pal button{flex:0 0 68px;height:68px;padding:0;border:2px solid #000;background:#fff1e8;cursor:pointer;box-shadow:2px 2px 0 #000;background-image:linear-gradient(45deg,#c2c3c7 25%,transparent 25% 75%,#c2c3c7 75%),linear-gradient(45deg,#c2c3c7 25%,transparent 25% 75%,#c2c3c7 75%);background-size:12px 12px;background-position:0 0,6px 6px}
 .pal button.used{border-color:#29adff;box-shadow:2px 2px 0 #29adff}
 .pal button.on{border-color:#ff004d;background-color:#ffec27;box-shadow:0 0 0 3px #ffec27,0 0 0 5px #ff004d,5px 5px 0 5px #000;transform:translate(-1px,-1px);position:relative;z-index:1}
@@ -216,7 +216,7 @@ input[type=range]{accent-color:var(--n)}
 .objbtn.on{border-color:#ff004d;box-shadow:0 0 0 3px #ffec27,0 0 0 5px #ff004d,5px 5px 0 5px #000;transform:translate(-1px,-1px);z-index:1}
 .pal button:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #000}
 .pal img{display:block;width:100%;height:100%;object-fit:contain}
-.pal .none{align-self:center;color:#5f574f;font-size:13px}
+.pal .none{align-self:center;color:#5f574f;font-size:13px;grid-row:1;grid-column:1/-1;white-space:nowrap}
 #stage{touch-action:none;cursor:grab}
 input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;padding:10px;border:2px solid #000;background:#fff;color:#000}
 
@@ -252,9 +252,11 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 .stool .tb[disabled]{opacity:1;background:var(--g);color:var(--d);box-shadow:none;border-color:var(--d);cursor:default}
 .stool .tb{min-height:58px}
 .swrap{max-width:none;width:calc(100% - 44px);margin-inline:auto;flex:none;min-height:0;grid-template-rows:auto 34px}
-.swrap .sview{display:block;grid-column:1;grid-row:1;position:relative}
-.swrap .view{width:100%;max-width:none;margin:0;border:0}
-.swrap .view canvas{display:block;width:100%;height:auto}
+.swrap .sview{display:block;grid-column:1;grid-row:1;position:relative;height:auto;aspect-ratio:4/5}
+.swrap .view{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;max-width:none;margin:0;border:0;background:#1d2b53}
+.swrap .view canvas{position:absolute;left:0;top:0;display:block;width:auto;height:auto}
+.swrap .othumb{top:0}
+.swrap .ohthumb{left:0}
 .swrap .ovbar{display:flex;flex-direction:column}
 .swrap .otrack{flex:1;min-height:0}
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px;padding:6px 6px 22px}
@@ -1974,27 +1976,52 @@ function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FI
 function ringWithDeco(i, S) { const o = ringCard(drawCard(res[i], S), res[i].ring); if (res[i].deco) drawItems(o.getContext('2d'), res[i].deco, S); return o; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
-function clampView() {
-  SV.z = Math.max(1, Math.min(5, SV.z));
-  SV.ox = Math.min(0, Math.max(SS * (1 - SV.z), SV.ox)); SV.oy = Math.min(0, Math.max(SS * (1 - SV.z), SV.oy));
+/* ---------- decoration screen: same view system as the cut-out screen (canvas = the whole work window, content can be moved inside it, zoom out to 50%) ---------- */
+const sv = { W: 0, H: 0, dpr: 1, fit: 1, init: false };
+const sclamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const zz = () => SV.z * sv.fit / 0.4;                       /* size of handles / dashes follows the zoom */
+const sSide = () => SS * sv.fit * SV.z;                     /* the card as drawn, in css px */
+function fitStageCanvas() {
+  const r = stageCv.parentElement.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return false;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (r.width === sv.W && r.height === sv.H && dpr === sv.dpr) return true;
+  const first = !sv.init;
+  sv.W = r.width; sv.H = r.height; sv.dpr = dpr; sv.fit = Math.min(sv.W, sv.H) / SS * 0.96;
+  stageCv.width = Math.round(sv.W * dpr); stageCv.height = Math.round(sv.H * dpr);
+  stageCv.style.width = sv.W + 'px'; stageCv.style.height = sv.H + 'px';
+  if (first) { SV.z = 1; SV.ox = (sv.W - sSide()) / 2; SV.oy = (sv.H - sSide()) / 2; sv.init = true; }
+  return true;
 }
+function clampView() {
+  SV.z = sclamp(SV.z, 0.5, 8);
+  const c = sSide(), mx = sv.W * 0.25, my = sv.H * 0.25;
+  const lx = sv.W - c - mx, ly = sv.H - c - my;
+  SV.ox = lx > mx ? (lx + mx) / 2 : sclamp(SV.ox, lx, mx); SV.oy = ly > my ? (ly + my) / 2 : sclamp(SV.oy, ly, my);
+}
+let chk = null;
 function renderStage() {
+  if (!fitStageCanvas()) { syncSel(); return; }
   clampView();
-  const x = sctx2; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, SS, SS);
-  x.setTransform(SV.z, 0, 0, SV.z, SV.ox, SV.oy);
-  drawItems(x, stage, SS);
-  x.save(); x.strokeStyle = '#ff004d'; x.lineWidth = 3 / SV.z; x.setLineDash([14 / SV.z, 9 / SV.z]);   /* the 100% area = the card */
-  x.strokeRect(1.5 / SV.z, 1.5 / SV.z, SS - 3 / SV.z, SS - 3 / SV.z); x.restore();
+  const x = sctx2, k = sv.fit * SV.z, d = sv.dpr, c = sSide();
+  x.setTransform(d, 0, 0, d, 0, 0); x.fillStyle = '#1d2b53'; x.fillRect(0, 0, sv.W, sv.H);
+  if (!chk) { const t = mkCanvas(16, 16), q = t.getContext('2d'); q.fillStyle = '#fff1e8'; q.fillRect(0, 0, 16, 16); q.fillStyle = '#c2c3c7'; q.fillRect(0, 0, 8, 8); q.fillRect(8, 8, 8, 8); chk = x.createPattern(t, 'repeat'); }
+  x.save(); x.beginPath(); x.rect(SV.ox, SV.oy, c, c); x.clip(); x.fillStyle = document.body.dataset.bg === 'dark' ? '#1b1b2b' : chk; x.fillRect(SV.ox, SV.oy, c, c); x.restore();
+  x.setTransform(d * k, 0, 0, d * k, d * SV.ox, d * SV.oy);
+  const Z = zz();
+  x.save(); x.beginPath(); x.rect(0, 0, SS, SS); x.clip(); drawItems(x, stage, SS); x.restore();
+  x.save(); x.strokeStyle = '#ff004d'; x.lineWidth = 3 / Z; x.setLineDash([14 / Z, 9 / Z]);   /* the card edge */
+  x.strokeRect(1.5 / Z, 1.5 / Z, SS - 3 / Z, SS - 3 / Z); x.restore();
   if (sel && stage.includes(sel)) {
     const bm = itemBitmap(sel, SS);
     x.save(); x.translate(sel.x * 2, sel.y * 2); x.rotate(sel.rot * Math.PI / 180);
-    x.strokeStyle = '#ff004d'; x.lineWidth = 3 / SV.z; x.setLineDash([10 / SV.z, 7 / SV.z]);
+    x.strokeStyle = '#ff004d'; x.lineWidth = 3 / Z; x.setLineDash([10 / Z, 7 / Z]);
     x.strokeRect(-bm.width / 2 - 3, -bm.height / 2 - 3, bm.width + 6, bm.height + 6);
-    x.setLineDash([]); x.lineWidth = 2 / SV.z; x.strokeStyle = '#000';
-    const hw = bm.width / 2 + 3, hh = bm.height / 2 + 3, hs = 13 / SV.z, rd = 52 / SV.z;
+    x.setLineDash([]); x.lineWidth = 2 / Z; x.strokeStyle = '#000';
+    const hw = bm.width / 2 + 3, hh = bm.height / 2 + 3, hs = 13 / Z, rd = 52 / Z;
     x.beginPath(); x.moveTo(0, -hh); x.lineTo(0, -hh - rd); x.stroke();                /* stalk to the rotate handle */
     x.fillStyle = '#ffec27';
-    [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].forEach(c => { x.fillRect(c[0] - hs, c[1] - hs, 2 * hs, 2 * hs); x.strokeRect(c[0] - hs, c[1] - hs, 2 * hs, 2 * hs); });
+    [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].forEach(q => { x.fillRect(q[0] - hs, q[1] - hs, 2 * hs, 2 * hs); x.strokeRect(q[0] - hs, q[1] - hs, 2 * hs, 2 * hs); });
     x.beginPath(); x.arc(0, -hh - rd, hs * 1.1, 0, Math.PI * 2); x.fill(); x.stroke();   /* rotate handle */
     x.restore();
   }
@@ -2002,39 +2029,43 @@ function renderStage() {
   updateZBars(); $('#zFitL').textContent = Math.round(SV.z * 100) + '%';
   syncSel();
 }
-function updateZBars() {
-  const f = 1 / SV.z, tv = $('#zvthumb'), th = $('#zhthumb');
-  tv.style.height = (f * 100) + '%'; tv.style.top = (-SV.oy / (SS * SV.z) * 100) + '%';
-  th.style.width = (f * 100) + '%'; th.style.left = (-SV.ox / (SS * SV.z) * 100) + '%';
+/* scroll bars: same maths as the cut-out screen (25% margin around the card) */
+function sScroll(ax) {
+  const L = ax === 'y' ? sv.H : sv.W, m = L * 0.25, total = sSide() + 2 * m, tr = $(ax === 'y' ? '#zvbar' : '#zhbar');
+  const T = (ax === 'y' ? tr.clientHeight : tr.clientWidth) || L, len = Math.min(T, Math.max(36, T * Math.min(1, L / total))), maxOff = Math.max(0, total - L);
+  return { L, m, T, len, room: T - len, maxOff, off: sclamp(m - (ax === 'y' ? SV.oy : SV.ox), 0, maxOff) };
 }
-function setZoom(z, cx, cy) {   /* zoom keeping canvas point (cx, cy) fixed */
-  cx = cx == null ? SS / 2 : cx; cy = cy == null ? SS / 2 : cy;
-  const wx = (cx - SV.ox) / SV.z, wy = (cy - SV.oy) / SV.z;
-  SV.z = Math.max(1, Math.min(5, z)); SV.ox = cx - wx * SV.z; SV.oy = cy - wy * SV.z; renderStage();
+function updateZBars() {
+  const v = sScroll('y'), h = sScroll('x'), tv = $('#zvthumb'), th = $('#zhthumb');
+  tv.style.height = v.len + 'px'; tv.style.transform = `translateY(${v.maxOff > 0 ? v.room * (v.off / v.maxOff) : 0}px)`;
+  th.style.width = h.len + 'px'; th.style.transform = `translateX(${h.maxOff > 0 ? h.room * (h.off / h.maxOff) : 0}px)`;
+}
+function sScrollTo(ax, off) {
+  const i = sScroll(ax); if (i.maxOff <= 0) return;
+  const o = i.m - sclamp(off, 0, i.maxOff); if (ax === 'y') SV.oy = o; else SV.ox = o; renderStage();
+}
+function setZoom(z, cx, cy) {   /* zoom keeping the screen point (cx, cy) fixed */
+  cx = cx == null ? sv.W / 2 : cx; cy = cy == null ? sv.H / 2 : cy;
+  const k0 = sv.fit * SV.z, wx = (cx - SV.ox) / k0, wy = (cy - SV.oy) / k0;
+  SV.z = sclamp(z, 0.5, 8); const k1 = sv.fit * SV.z; SV.ox = cx - wx * k1; SV.oy = cy - wy * k1; renderStage();
 }
 $('#zIn').addEventListener('click', () => setZoom(SV.z * 1.4));
 $('#zOut').addEventListener('click', () => setZoom(SV.z / 1.4));
-$('#zFit').addEventListener('click', () => { SV.z = 1; SV.ox = SV.oy = 0; renderStage(); });
-function barDrag(barId, thumbId, axis) {
-  const bar = $(barId), thumb = $(thumbId); let d = null;
-  const setFrac = fr => { const k = -fr * SS * SV.z; if (axis === 'y') SV.oy = k; else SV.ox = k; renderStage(); };
-  thumb.addEventListener('pointerdown', e => { thumb.setPointerCapture(e.pointerId); d = { p: axis === 'y' ? e.clientY : e.clientX, o: axis === 'y' ? SV.oy : SV.ox }; e.preventDefault(); e.stopPropagation(); });
-  thumb.addEventListener('pointermove', e => {
-    if (!d) return; const r = bar.getBoundingClientRect(), len = axis === 'y' ? r.height : r.width;
-    const dp = (axis === 'y' ? e.clientY : e.clientX) - d.p, k = d.o - dp / len * SS * SV.z;
-    if (axis === 'y') SV.oy = k; else SV.ox = k; renderStage();
-  });
+$('#zFit').addEventListener('click', () => { SV.z = 1; SV.ox = (sv.W - sSide()) / 2; SV.oy = (sv.H - sSide()) / 2; renderStage(); });
+function barDrag(trackId, thumbId, ax) {
+  const track = $(trackId), thumb = $(thumbId); let d = null;
+  thumb.addEventListener('pointerdown', e => { e.stopPropagation(); thumb.setPointerCapture(e.pointerId); d = { p: ax === 'y' ? e.clientY : e.clientX, off0: sScroll(ax).off }; });
+  thumb.addEventListener('pointermove', e => { if (!d) return; const i = sScroll(ax); if (i.room <= 0) return; sScrollTo(ax, d.off0 + ((ax === 'y' ? e.clientY : e.clientX) - d.p) * (i.maxOff / i.room)); });
   const end = () => { d = null; }; thumb.addEventListener('pointerup', end); thumb.addEventListener('pointercancel', end);
-  bar.addEventListener('pointerdown', e => {
-    if (e.target === thumb) return; const r = bar.getBoundingClientRect();
-    const fr = axis === 'y' ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
-    setFrac(Math.max(0, Math.min(1 - 1 / SV.z, fr - 0.5 / SV.z)));
+  track.addEventListener('pointerdown', e => {
+    if (e.target !== track) return; const r = track.getBoundingClientRect(), i = sScroll(ax);
+    const tp = i.maxOff > 0 ? i.room * (i.off / i.maxOff) : 0, pos = ax === 'y' ? e.clientY - r.top : e.clientX - r.left;
+    sScrollTo(ax, i.off + (pos < tp ? -1 : 1) * i.L * 0.8);
   });
 }
 barDrag('#zvbar', '#zvthumb', 'y'); barDrag('#zhbar', '#zhthumb', 'x');
-const zStep = (dx, dy) => { SV.ox += dx * SS * 0.15; SV.oy += dy * SS * 0.15; renderStage(); };   /* arrow buttons, like the cut-out screen */
-$('#zUp').addEventListener('click', () => zStep(0, 1)); $('#zDn').addEventListener('click', () => zStep(0, -1));
-$('#zLf').addEventListener('click', () => zStep(1, 0)); $('#zRt').addEventListener('click', () => zStep(-1, 0));
+$('#zUp').addEventListener('click', () => sScrollTo('y', sScroll('y').off - sv.H * 0.25)); $('#zDn').addEventListener('click', () => sScrollTo('y', sScroll('y').off + sv.H * 0.25));
+$('#zLf').addEventListener('click', () => sScrollTo('x', sScroll('x').off - sv.W * 0.25)); $('#zRt').addEventListener('click', () => sScrollTo('x', sScroll('x').off + sv.W * 0.25));
 function syncSel() {
   markPal();
   const on = !!(sel && stage.includes(sel));
@@ -2069,15 +2100,15 @@ function hit(px, py) {
 /* resize / rotate handles of the selected item (positions in 360 space) */
 function handleAt(p) {
   if (!sel || !stage.includes(sel)) return null;
-  const bm = itemBitmap(sel, SS), hw = (bm.width / 2 + 3) / 2, hh = (bm.height / 2 + 3) / 2, a = sel.rot * Math.PI / 180, tol = 24 / SV.z;
+  const bm = itemBitmap(sel, SS), hw = (bm.width / 2 + 3) / 2, hh = (bm.height / 2 + 3) / 2, a = sel.rot * Math.PI / 180, tol = 24 / zz();
   const W = (lx, ly) => [sel.x + lx * Math.cos(a) - ly * Math.sin(a), sel.y + lx * Math.sin(a) + ly * Math.cos(a)];
-  const r = W(0, -hh - 26 / SV.z);
+  const r = W(0, -hh - 26 / zz());
   if (Math.hypot(p[0] - r[0], p[1] - r[1]) < tol) return 'rot';
   for (const c of [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]) { const q = W(c[0], c[1]); if (Math.hypot(p[0] - q[0], p[1] - q[1]) < tol) return 'scale'; }
   return null;
 }
-const sRaw = e => { const r = stageCv.getBoundingClientRect(); return [(e.clientX - r.left) * SS / r.width, (e.clientY - r.top) * SS / r.height]; };
-const sPos = e => { const q = sRaw(e); return [(q[0] - SV.ox) / SV.z / 2, (q[1] - SV.oy) / SV.z / 2]; };
+const sRaw = e => { const r = stageCv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+const sPos = e => { const q = sRaw(e), k = sv.fit * SV.z; return [(q[0] - SV.ox) / k / 2, (q[1] - SV.oy) / k / 2]; };
 const sPtrs = new Map(); let sDrag = null, sPinch = null;
 stageCv.addEventListener('pointerdown', e => {
   stageCv.setPointerCapture(e.pointerId); sPtrs.set(e.pointerId, sRaw(e)); e.preventDefault();
@@ -2226,6 +2257,7 @@ $('#palFold').addEventListener('click', () => {
   b.setAttribute('aria-expanded', String(open)); $('#palBody').hidden = !open;
 });
 
+if (window.ResizeObserver) new ResizeObserver(() => renderStage()).observe($('#stageView'));
 $('#stageNew').addEventListener('click', () => { stage = []; sel = null; $('#stageNote').textContent = ''; renderStage(); });
 
 /* ---------- step 4: default card + 3 random re-arrangements of the same objects ---------- */
