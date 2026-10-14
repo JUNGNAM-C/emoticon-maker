@@ -410,7 +410,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 안쪽 격자선 전체를 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 랜덤5는 같은 배치 둘레에 나이테처럼 무작위 색의 윤곽선을 겹겹이 두른 카드입니다. 다시 만들기를 누르면 랜덤2·3·4·5가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 안쪽 격자선 전체를 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 랜덤5는 같은 배치 둘레에 나이테처럼 무작위 색의 윤곽선을 겹겹이 두르고 그 위에 꾸미기 개체 2~5종을 작게 흩뿌린 카드입니다. 다시 만들기를 누르면 랜덤2·3·4·5가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1951,7 +1951,8 @@ function pixelate(src, o) {
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
 /* card 1 only: the default layout as pixel art with fixed values */
 const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };
-function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FIX) : res[i].ring ? ringCard(drawCard(res[i], S), res[i].ring) : drawCard(res[i], S); }
+function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FIX) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
+function ringWithDeco(i, S) { const o = ringCard(drawCard(res[i], S), res[i].ring); if (res[i].deco) drawItems(o.getContext('2d'), res[i].deco, S); return o; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
 function clampView() {
@@ -2390,12 +2391,31 @@ function ringCard(base, P) {
   ox.putImageData(im, 0, 0); ox.drawImage(base, 0, 0);
   return out;
 }
+/* decoration on top of the rings: 2-5 kinds of insertable objects (borderless ones from the stage first, then the library), scattered evenly (Poisson), small, away from the main objects */
+const R5D = { kindMin: 2, kindMax: 5, rMin: 34, rMax: 52, sizeMin: 0.4, sizeMax: 0.75, clear: 6 };
+function ringDeco(items) {
+  const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
+  const mine = []; items.filter(isFixed).forEach(it => { if (!mine.some(m => m.src === it.src)) mine.push(it); });
+  const K = R5D.kindMin + ((rng() * (R5D.kindMax - R5D.kindMin + 1)) | 0), kinds = mine.slice().sort(() => rng() - 0.5).slice(0, K).map(it => it.src);
+  while (kinds.length < K) { const [id, v] = lib[(rng() * lib.length) | 0]; const sp = shapeSrc(id, v); if (!kinds.includes(sp)) kinds.push(sp); }
+  const mainItems = items.filter(it => !isFixed(it) || true), out = [], r = rr(R5D.rMin, R5D.rMax);
+  const pts = poissonPoints(r, 0.3).sort(() => rng() - 0.5);
+  let n = 0;
+  for (const [x, y] of pts) {
+    const src = kinds[n % K], q = { id: 0, type: 'shape', src, x, y, s: 1, rot: rr(-40, 40), flip: rng() < 0.5, bd: false };
+    const m = Math.max(...fitSize(q)); q.s = r * rr(R5D.sizeMin, R5D.sizeMax) / m;
+    const rad = r * R5D.sizeMax / 2;
+    if (mainItems.some(it => { const [w, h] = fitSize(it); return Math.hypot(it.x - x, it.y - y) < Math.hypot(w, h) / 2 * 0.85 + rad + R5D.clear; })) continue;
+    out.push(q); n++;
+  }
+  return out;
+}
 const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기', '나이테'];
 const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
 function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
-  const rg = cloneItems(items); rg.ring = ringParams();
+  const rg = cloneItems(items); rg.ring = ringParams(); rg.deco = ringDeco(items);
   return [cloneItems(items), overlapCard(items), mix(chainCard), mix(poissonCard), rg];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
