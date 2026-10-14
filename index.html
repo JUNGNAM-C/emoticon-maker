@@ -2017,10 +2017,13 @@ const POP_PAL = ['#e8105a', '#ff2d6f', '#ff7a00', '#ffc400', '#ffe94d', '#1faa2e
 const PX_FIX = { dot: 8, cnt: 18, pal: 'pop', sat: 150 };
 function pixelBgCard(items, S) {
   const c = mkCanvas(S, S), x = c.getContext('2d'), ph = items.find(it => it.type === 'photo' && it.src && it.src.bg);
-  if (ph) { x.imageSmoothingQuality = 'high'; x.drawImage(ph.src.bg, 0, 0, S, S); }
+  if (ph) {                                              /* only the leftover background becomes pixel art */
+    const b = mkCanvas(S, S); b.getContext('2d').drawImage(ph.src.bg, 0, 0, S, S);
+    x.drawImage(pixelate(b, PX_FIX), 0, 0);
+  }
   drawItems(x, items, S); return c;
 }
-function cardCanvas(i, S) { return i === 1 ? pixelate(pixelBgCard(res[i], S), PX_FIX) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
+function cardCanvas(i, S) { return i === 1 ? pixelBgCard(res[i], S) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
 function ringWithDeco(i, S) { const o = ringCard(drawCard(res[i], S), res[i].ring); if (res[i].deco) drawItems(o.getContext('2d'), res[i].deco, S); return o; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
