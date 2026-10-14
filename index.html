@@ -410,7 +410,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 격자선을 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 다시 만들기를 누르면 랜덤2·3·4가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 안쪽 격자선 전체를 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 랜덤5는 같은 배치 둘레에 나이테처럼 무작위 색의 윤곽선을 겹겹이 두른 카드입니다. 다시 만들기를 누르면 랜덤2·3·4·5가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -1951,7 +1951,7 @@ function pixelate(src, o) {
 /* ---------- cartoon filter: smooth the flat areas, cut colours into a few steps, draw bold outlines (alpha is kept) ---------- */
 /* card 1 only: the default layout as pixel art with fixed values */
 const PX_FIX = { dot: 4, cnt: 64, pal: 'auto', sat: 100 };
-function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FIX) : drawCard(res[i], S); }
+function cardCanvas(i, S) { return i === 1 ? pixelate(drawCard(res[i], S), PX_FIX) : res[i].ring ? ringCard(drawCard(res[i], S), res[i].ring) : drawCard(res[i], S); }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
 function clampView() {
@@ -2218,15 +2218,16 @@ const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV
 function overlapCard(items) {
   const pool = items.filter(it => !isFixed(it)), decor = items.filter(isFixed), out = [];
   const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N;
-  if (decor.length) {                                       /* dotted line of decoration along an inner grid line */
-    const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M, vert = rng() < 0.5;
-    const line = (1 + ((rng() * (N - 1)) | 0)) * cs, size = Math.min(cs * rr(R2.decorKMin, R2.decorKMax), step * R2.decorFill);
+  if (decor.length) {                                       /* dotted lines along EVERY inner grid line (N-1 vertical + N-1 horizontal) */
+    const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M;
+    const size = Math.min(cs * rr(R2.decorKMin, R2.decorKMax), step * R2.decorFill);
     const dot = decor[(rng() * decor.length) | 0];           /* one decoration object repeated: reads as a dotted line */
-    for (let j = 0; j < M; j++) {
-      const src = dot, q = withS(src, 1), m = Math.max(...fitSize(q));
-      q.s = size / m; q.rot = 0; q.flip = false;
-      q.x = vert ? line : (j + 0.5) * step; q.y = vert ? (j + 0.5) * step : line;
-      out.push(q);
+    const put = (x, y) => { const q = withS(dot, 1), m = Math.max(...fitSize(q)); q.s = size / m; q.rot = 0; q.flip = false; q.x = x; q.y = y; out.push(q); };
+    for (let g = 1; g < N; g++) for (let j = 0; j < M; j++) {
+      const pos = (j + 0.5) * step;
+      put(g * cs, pos);                                      /* vertical line */
+      let near = false; for (let h = 1; h < N; h++) if (Math.abs(pos - h * cs) < size * 0.9) near = true;
+      if (!near) put(pos, g * cs);                           /* horizontal line (skip dots that would sit on a crossing) */
     }
   }
   if (!pool.length) return out;
@@ -2342,12 +2343,60 @@ function poissonCard(items) {
   });
   return out;
 }
-const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기'];
+/* 5) tree-ring card: default layout, with coloured contour lines growing outward from the silhouette like growth rings (random colours, wobble, spacing) */
+const R5 = { gap: 7, pitchMin: 6, pitchMax: 9, lineMin: 3, lineMax: 5, wobble: 2.2, blur: 0.02,
+  pal: ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa', '#1d2b53', '#008751', '#ab5236', '#000000'] };
+function ringParams() {
+  const pitch = rr(R5.pitchMin, R5.pitchMax), ph = () => rng() * 6.283, cols = [];
+  for (let k = 0; k < 120; k++) { let c; do { c = R5.pal[(rng() * R5.pal.length) | 0]; } while (c === cols[k - 1]); cols.push(c); }
+  return { pitch, line: Math.min(pitch - 1.5, rr(R5.lineMin, R5.lineMax)), cols, ph: [ph(), ph(), ph(), ph()], f: [rr(2, 4), rr(2, 4), rr(3, 6)] };
+}
+function edt1(f, n, d, v, z) {                              /* 1-D squared distance transform (Felzenszwalb) */
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let sx = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (sx <= z[k]) { k--; sx = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = sx; z[k + 1] = 1e20;
+  }
+  k = 0; for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+function ringCard(base, P) {
+  const S = base.width, u = S / 360, w = S, h = S, a = base.getContext('2d').getImageData(0, 0, w, h).data, INF = 1e12;
+  const f = new Float64Array(w * h); for (let i = 0; i < w * h; i++) f[i] = a[i * 4 + 3] > 40 ? 0 : INF;
+  const n = Math.max(w, h), col = new Float64Array(n), dd = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) col[y] = f[y * w + x]; edt1(col, h, dd, v, z); for (let y = 0; y < h; y++) f[y * w + x] = dd[y]; }
+  for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) col[x] = f[y * w + x]; edt1(col, w, dd, v, z); for (let x = 0; x < w; x++) f[y * w + x] = dd[x]; }
+  let D = new Float32Array(w * h), mx = 0; for (let i = 0; i < w * h; i++) { D[i] = Math.sqrt(f[i]) / u; if (D[i] > mx && D[i] < 1e5) mx = D[i]; }
+  if (mx === 0) return base;
+  const r = Math.max(1, Math.round(S * R5.blur)), T = new Float32Array(w * h);   /* box blur x2: rounds the contours */
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 0; y < h; y++) { let sum = 0; const o = y * w; for (let x = -r; x <= r; x++) sum += D[o + Math.min(w - 1, Math.max(0, x))];
+      for (let x = 0; x < w; x++) { T[o + x] = sum / (2 * r + 1); sum += D[o + Math.min(w - 1, x + r + 1)] - D[o + Math.max(0, x - r)]; } }
+    for (let x = 0; x < w; x++) { let sum = 0; for (let y = -r; y <= r; y++) sum += T[Math.min(h - 1, Math.max(0, y)) * w + x];
+      for (let y = 0; y < h; y++) { D[y * w + x] = sum / (2 * r + 1); sum += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
+  }
+  const out = mkCanvas(w, h), ox = out.getContext('2d'), im = ox.createImageData(w, h), px = im.data, rgb = P.cols.map(c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]);
+  const [p0, p1, p2, p3] = P.ph, [f0, f1, f2] = P.f, TAU = 6.283;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, X = x / w, Y = y / h;
+    let L = D[i] / 1 - R5.gap;
+    if (L < 0) continue;
+    L += R5.wobble * (1 + L / 120) * (Math.sin(X * TAU * f0 + p0 + Y * 3) + Math.sin(Y * TAU * f1 + p1 - X * 2) + Math.sin((X + Y) * TAU * f2 + p2)) / 3;
+    if (L < 0) continue;
+    const k = Math.floor(L / P.pitch), c = Math.abs(L - k * P.pitch - P.pitch / 2), cov = Math.max(0, Math.min(1, (P.line / 2 - c) * u + 0.5));
+    if (cov <= 0) continue;
+    const C = rgb[k % rgb.length], o = i * 4; px[o] = C[0]; px[o + 1] = C[1]; px[o + 2] = C[2]; px[o + 3] = Math.round(cov * 255);
+  }
+  ox.putImageData(im, 0, 0); ox.drawImage(base, 0, 0);
+  return out;
+}
+const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기', '나이테'];
 const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
 function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
-  return [cloneItems(items), overlapCard(items), mix(chainCard), mix(poissonCard)];
+  const rg = cloneItems(items); rg.ring = ringParams();
+  return [cloneItems(items), overlapCard(items), mix(chainCard), mix(poissonCard), rg];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
