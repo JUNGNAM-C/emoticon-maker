@@ -410,7 +410,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 안쪽 격자선 전체를 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 랜덤5는 같은 배치 둘레에 나이테처럼 무작위 색의 윤곽선을 겹겹이 두르고 그 위에 꾸미기 개체 2~5종을 작게 흩뿌린 카드입니다. 다시 만들기를 누르면 랜덤2·3·4·5가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체 2~4종은 안쪽 격자선 전체를 따라 같은 순서로 반복되는 점선처럼 아주 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드이고 글씨만 1.5~3배 크게 나옵니다. 랜덤5는 같은 배치 둘레에 나이테처럼 무작위 색의 윤곽선을 겹겹이 두르고 그 위에 꾸미기 개체 2~5종을 작게 흩뿌린 카드입니다. 다시 만들기를 누르면 랜덤2·3·4·5가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2215,20 +2215,22 @@ const isImg = it => it.type === 'photo' || it.type === 'shape';
 const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
 /* 1) grid: the card is cut into N x N cells (N = 2..5); every cell gets a random object, longest side 0.5-0.9 of the cell (never past it). Writing keeps its direction; images may mirror horizontally / vertically.
       Borderless objects are the decoration: 2-10 small ones in a row along one inner grid line (dotted-line look), drawn behind everything. */
-const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.3, decorKMax: 0.45, decorFill: 0.7 };
+const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.16, decorKMax: 0.26, decorFill: 0.6, kindMin: 2, kindMax: 4 };
 function overlapCard(items) {
   const pool = items.filter(it => !isFixed(it)), decor = items.filter(isFixed), out = [];
   const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N;
   if (decor.length) {                                       /* dotted lines along EVERY inner grid line (N-1 vertical + N-1 horizontal) */
     const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M;
     const size = Math.min(cs * rr(R2.decorKMin, R2.decorKMax), step * R2.decorFill);
-    const dot = decor[(rng() * decor.length) | 0];           /* one decoration object repeated: reads as a dotted line */
-    const put = (x, y) => { const q = withS(dot, 1), m = Math.max(...fitSize(q)); q.s = size / m; q.rot = 0; q.flip = false; q.x = x; q.y = y; out.push(q); };
+    const kinds = []; { const uniq = []; decor.forEach(it => { if (!uniq.some(u => u.src === it.src)) uniq.push(it); });
+      const K = Math.min(uniq.length, R2.kindMin + ((rng() * (R2.kindMax - R2.kindMin + 1)) | 0)); uniq.sort(() => rng() - 0.5); for (let i = 0; i < K; i++) kinds.push(uniq[i]); }
+    let cnt = 0;                                             /* 2-4 kinds repeated in a fixed order (A B C A B C ...) so it reads as a dotted line */
+    const put = (x, y) => { const dot = kinds[cnt++ % kinds.length], q = withS(dot, 1), m = Math.max(...fitSize(q)); q.s = size / m; q.rot = 0; q.flip = false; q.x = x; q.y = y; out.push(q); };
     for (let g = 1; g < N; g++) for (let j = 0; j < M; j++) {
-      const pos = (j + 0.5) * step;
+      const pos = (j + 0.5) * step; cnt = j;
       put(g * cs, pos);                                      /* vertical line */
       let near = false; for (let h = 1; h < N; h++) if (Math.abs(pos - h * cs) < size * 0.9) near = true;
-      if (!near) put(pos, g * cs);                           /* horizontal line (skip dots that would sit on a crossing) */
+      if (!near) { cnt = j; put(pos, g * cs); }                           /* horizontal line (skip dots that would sit on a crossing) */
     }
   }
   if (!pool.length) return out;
@@ -2306,7 +2308,7 @@ function chainCard(items) {
   return out;
 }
 /* 4) Poisson-disk scatter: random points kept at least r apart (Bridson), one object per point -> even, never clumped, never overlapping */
-const R4 = { rMin: 60, rMax: 100, k: 30, edge: 0.35, sizeMin: 0.45, sizeMax: 0.7, mirrorH: 0.5, mirrorV: 0.5 };
+const R4 = { rMin: 60, rMax: 100, k: 30, edge: 0.35, sizeMin: 0.45, sizeMax: 0.7, mirrorH: 0.5, mirrorV: 0.5, textMin: 1.5, textMax: 3 };
 function poissonPoints(r, edge) {
   const lo = r * edge, hi = 360 - r * edge, cell = r / Math.SQRT2, G = Math.ceil(360 / cell), grid = new Array(G * G).fill(-1), pts = [], act = [];
   const add = p => { pts.push(p); act.push(pts.length - 1); grid[((p[1] / cell) | 0) * G + ((p[0] / cell) | 0)] = pts.length - 1; };
@@ -2338,6 +2340,7 @@ function poissonCard(items) {
   pts.forEach((p, i) => {
     const src = seq[i], q = withS(src, 1), m = Math.max(...fitSize(q));
     q.s = r * rr(R4.sizeMin, R4.sizeMax) / m;                /* side <= 0.7 r: circumcircle <= r, so neighbours never touch */
+    if (!isImg(src)) q.s *= rr(R4.textMin, R4.textMax);       /* writing only: 1.5-3x bigger */
     q.x = p[0]; q.y = p[1]; q.rot = 0; q.flip = false;
     if (isImg(src)) { const h = rng() < R4.mirrorH, v = rng() < R4.mirrorV; q.flip = h !== v; q.rot = v ? 180 : 0; }
     out.push(q);
@@ -2346,7 +2349,7 @@ function poissonCard(items) {
 }
 /* 5) tree-ring card: default layout, with coloured contour lines growing outward from the silhouette like growth rings (random colours, wobble, spacing) */
 const R5 = { gap: 7, pitchMin: 6, pitchMax: 9, lineMin: 3, lineMax: 5, wobble: 2.2, blur: 0.02,
-  pal: ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa', '#1d2b53', '#008751', '#ab5236', '#000000'] };
+  pal: ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa', '#c8a2ff', '#008751', '#ab5236', '#b5e61d'] };
 function ringParams() {
   const pitch = rr(R5.pitchMin, R5.pitchMax), ph = () => rng() * 6.283, cols = [];
   for (let k = 0; k < 120; k++) { let c; do { c = R5.pal[(rng() * R5.pal.length) | 0]; } while (c === cols[k - 1]); cols.push(c); }
