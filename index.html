@@ -2215,9 +2215,15 @@ const isImg = it => it.type === 'photo' || it.type === 'shape';
 const capSide = (q, max) => { const [w, h] = fitSize(q); const m = Math.max(w, h); if (m > max) q.s *= max / m; return q; };
 /* 1) grid: the card is cut into N x N cells (N = 2..5); every cell gets a random object, longest side 0.5-0.9 of the cell (never past it). Writing keeps its direction; images may mirror horizontally / vertically.
       Borderless objects are the decoration: 2-10 small ones in a row along one inner grid line (dotted-line look), drawn behind everything. */
-const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.16, decorKMax: 0.26, decorFill: 0.6, kindMin: 2, kindMax: 4 };
+const R2 = { gridMin: 2, gridMax: 5, kMin: 0.5, kMax: 0.9, mirrorH: 0.5, mirrorV: 0.5, decorMin: 2, decorMax: 10, decorKMin: 0.24, decorKMax: 0.36, decorFill: 0.6, kindMin: 2, kindMax: 4 };
 function overlapCard(items) {
-  const pool = items.filter(it => !isFixed(it)), decor = items.filter(isFixed), out = [];
+  const pool = items.filter(it => !isFixed(it)), out = [];
+  let decor = items.filter(isFixed);
+  if (!decor.length) {                                      /* no borderless object on the stage: use 2-4 random library objects as the dotted line */
+    const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
+    const K = R2.kindMin + ((rng() * (R2.kindMax - R2.kindMin + 1)) | 0);
+    for (let i = 0; i < K; i++) { const [id, v] = lib[(rng() * lib.length) | 0]; decor.push({ id: 0, type: 'shape', src: shapeSrc(id, v), x: 0, y: 0, s: 1, rot: 0, flip: false, bd: false }); }
+  }
   const N = R2.gridMin + ((rng() * (R2.gridMax - R2.gridMin + 1)) | 0), cs = 360 / N;
   if (decor.length) {                                       /* dotted lines along EVERY inner grid line (N-1 vertical + N-1 horizontal) */
     const M = R2.decorMin + ((rng() * (R2.decorMax - R2.decorMin + 1)) | 0), step = 360 / M;
@@ -2404,23 +2410,26 @@ function ringCard(base, P) {
   return out;
 }
 /* decoration on top of the rings: 2-5 kinds of insertable objects (borderless ones from the stage first, then the library), scattered evenly (Poisson), small, away from the main objects */
-const R5D = { kindMin: 2, kindMax: 5, rMin: 34, rMax: 52, sizeMin: 0.4, sizeMax: 0.75, clear: 6 };
+const R5D = { kindMin: 2, kindMax: 5, rMin: 34, rMax: 52, sizeMin: 0.4, sizeMax: 0.75, clear: 6, kMin: 1.5, kMax: 3 };
 function ringDeco(items) {
   const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
   const mine = []; items.filter(isFixed).forEach(it => { if (!mine.some(m => m.src === it.src)) mine.push(it); });
   const K = R5D.kindMin + ((rng() * (R5D.kindMax - R5D.kindMin + 1)) | 0), kinds = mine.slice().sort(() => rng() - 0.5).slice(0, K).map(it => it.src);
   while (kinds.length < K) { const [id, v] = lib[(rng() * lib.length) | 0]; const sp = shapeSrc(id, v); if (!kinds.includes(sp)) kinds.push(sp); }
-  const mainItems = items.filter(it => !isFixed(it) || true), out = [], r = rr(R5D.rMin, R5D.rMax);
-  const pts = poissonPoints(r, 0.3).sort(() => rng() - 0.5);
-  let n = 0;
-  for (const [x, y] of pts) {
-    const src = kinds[n % K], q = { id: 0, type: 'shape', src, x, y, s: 1, rot: rr(-40, 40), flip: rng() < 0.5, bd: false };
-    const m = Math.max(...fitSize(q)); q.s = r * rr(R5D.sizeMin, R5D.sizeMax) / m;
-    const rad = r * R5D.sizeMax / 2;
-    if (mainItems.some(it => { const [w, h] = fitSize(it); return Math.hypot(it.x - x, it.y - y) < Math.hypot(w, h) / 2 * 0.85 + rad + R5D.clear; })) continue;
-    out.push(q); n++;
+  const r0 = rr(R5D.rMin, R5D.rMax), kk = rr(R5D.kMin, R5D.kMax);   /* objects are 1.5-3x bigger than before */
+  let best = [];
+  for (let att = 0; att < 7 && best.length < 6; att++) {    /* if the big objects find too little room, the spacing is tightened step by step (size stays) */
+    const r = r0 * kk * 0.8 * (1 - 0.09 * att), pts = poissonPoints(r, 0.25).sort(() => rng() - 0.5), out = [];
+    for (const [x, y] of pts) {
+      const src = kinds[out.length % K], q = { id: 0, type: 'shape', src, x, y, s: 1, rot: rr(-40, 40), flip: rng() < 0.5, bd: false };
+      const m = Math.max(...fitSize(q)); q.s = r0 * kk * rr(R5D.sizeMin, R5D.sizeMax) / m;
+      const rad = Math.max(...fitSize(q)) / 2;
+      if (items.some(it => { const [w, h] = fitSize(it); return Math.hypot(it.x - x, it.y - y) < Math.hypot(w, h) / 2 * 0.75 + rad * 0.8 + R5D.clear; })) continue;
+      out.push(q);
+    }
+    if (out.length > best.length) best = out;
   }
-  return out;
+  return best;
 }
 const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기', '나이테'];
 const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
