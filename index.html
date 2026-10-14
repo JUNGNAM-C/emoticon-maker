@@ -2249,10 +2249,19 @@ function overlapCard(items) {
   return out;
 }
 /* 3) chain: all writing at one height in random order, joined into long lines; one rotated image at the top */
-const R3 = { repeat: true, sizeMin: 0.5, sizeMax: 1.5, rowsMin: 4, rowsMax: 10, fillW: 360, gap: 0, hMin: 12, hStep: 4, rowW: 1080, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const R3 = { repeat: true, sizeMin: 0.5, sizeMax: 1.5, rowsMin: 4, rowsMax: 10, fillW: 360, gap: 10, hMin: 12, hStep: 4, rowW: 1080, maxH: 360, bottom: 350, kMin: 1, kMax: 1.5, rot: 180, top: 8 };
+const inkMemo = new WeakMap();
+function inkRows(it) {                                       /* first / last row of real ink in the writing bitmap, as fractions of its height */
+  const b = baseOf(it); if (!b || !b.getContext) return [0, 1];
+  if (inkMemo.has(b)) return inkMemo.get(b);
+  const d = b.getContext('2d').getImageData(0, 0, b.width, b.height).data; let t = -1, u = -1;
+  for (let y = 0; y < b.height && t < 0; y++) for (let x = 0; x < b.width; x++) if (d[(y * b.width + x) * 4 + 3] > 24) { t = y; break; }
+  for (let y = b.height - 1; y >= 0 && u < 0; y--) for (let x = 0; x < b.width; x++) if (d[(y * b.width + x) * 4 + 3] > 24) { u = y; break; }
+  const r = t < 0 ? [0, 1] : [t / b.height, (u + 1) / b.height]; inkMemo.set(b, r); return r;
+}
 function chainCard(items) {
   const imgs = items.filter(isImg), txts = items.filter(it => !isImg(it)).sort(() => rng() - 0.5), out = [];
-  const h1 = it => fitSize(withS(it, 1))[1], w1 = it => fitSize(withS(it, 1))[0];
+  const h1 = it => fitSize(withS(it, 1))[1] * (inkRows(it)[1] - inkRows(it)[0]), w1 = it => fitSize(withS(it, 1))[0];
   if (txts.length) {
     let H = R3.hStart, rows = [], totalH = 0;
     let gap = R3.gap;
@@ -2293,7 +2302,7 @@ function chainCard(items) {
       let x = 180 - r.rw / 2;                           /* centred; a long line runs past the card edges */
       r.row.forEach(c => {
         const q = withS(c.t, c.t.s); q.s = H / h1(c.t);
-        const [w] = fitSize(q); q.x = x + w / 2; q.y = r.yc !== undefined ? r.yc : top + ri * (H + gap) + (H + gap) / 2; q.rot = 0; q.flip = false; out.push(q); x += w;
+        const [w, bh] = fitSize(q), ik = inkRows(c.t); q.x = x + w / 2; q.y = (r.yc !== undefined ? r.yc : top + ri * (H + gap) + (H + gap) / 2) - ((ik[0] + ik[1]) / 2 - 0.5) * bh; q.rot = 0; q.flip = false; out.push(q); x += w;
       });
     });
   }
