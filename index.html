@@ -250,7 +250,11 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 
 .stool{max-width:none;margin-inline:0}
 .stool .tb[disabled]{opacity:1;background:var(--g);color:var(--d);box-shadow:none;border-color:var(--d);cursor:default}
-.stool .tb{min-height:58px}
+.stool .tb{min-height:44px;gap:2px;padding:4px 0;font-size:12px}
+.stool .tb svg{width:19px;height:19px}
+.rng.line.long{grid-template-columns:3em minmax(0,1fr) 4.2ch;gap:0 6px}
+#stage.locked{touch-action:pan-y pinch-zoom;cursor:default}
+.tb[aria-pressed="true"] svg{stroke:currentColor}
 .swrap{max-width:none;width:calc(100% - 44px);margin-inline:auto;flex:none;min-height:0;grid-template-rows:auto 34px}
 .swrap .sview{display:block;grid-column:1;grid-row:1;position:relative;height:auto;aspect-ratio:4/5}
 .swrap .view{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;max-width:none;margin:0;border:0;background:#1d2b53}
@@ -383,12 +387,9 @@ input,textarea,select{font-size:16px}
       <div class="card stack wide">
         <h2>꾸미기</h2>
         <p class="hint">여기에 올린 배치가 결과의 기본 카드가 됩니다. 보관함에서 눌러 가져오고 화면에서 끌어 옮기세요. 위쪽 확대 버튼과 스크롤 막대로 화면을 키워 보며 맞출 수 있습니다.</p>
-        <label class="rng line"><span>크기</span><input type="range" id="selS" min="10" max="400" step="10" value="100" disabled><output></output></label>
-        <label class="rng line"><span>각도</span><input type="range" id="selR" min="-180" max="180" step="15" value="0" disabled><output></output></label>
         <div class="otools stool" role="toolbar" aria-label="화면 도구">
-          <button class="tb" id="zIn" aria-label="확대"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-5-5M11 8v6M8 11h6"/></svg>확대</button>
-          <button class="tb" id="zOut" aria-label="축소"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-5-5M8 11h6"/></svg>축소</button>
-          <button class="tb" id="zFit" aria-label="전체 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span id="zFitL">100%</span></button>
+          <button class="tb" id="zFit" aria-label="100%로 되돌리기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span id="zFitL">100%</span></button>
+          <button class="tb" id="zLock" aria-pressed="false" aria-label="잠금"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span id="zLockL">잠금</span></button>
           <span class="tsep"></span>
           <button class="tb" id="selUp" disabled aria-label="앞으로"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="11" height="11" rx="1"/><path d="M10 10h11v11H10z" fill="currentColor" fill-opacity=".25"/></svg>앞으로</button>
           <button class="tb" id="selDown" disabled aria-label="뒤로"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="10" y="10" width="11" height="11" rx="1"/><path d="M3 3h11v11H3z" fill="currentColor" fill-opacity=".25"/></svg>뒤로</button>
@@ -414,6 +415,8 @@ input,textarea,select{font-size:16px}
           </div>
           <div class="ocorner"></div>
         </div>
+        <label class="rng line long"><span>크기</span><input type="range" id="selS" min="10" max="400" step="10" value="100" disabled><output></output></label>
+        <label class="rng line long"><span>각도</span><input type="range" id="selR" min="-180" max="180" step="15" value="0" disabled><output></output></label>
         <h3 class="sub">선택한 것 바꾸기</h3>
         <p class="hint" id="selHint">화면에서 이미지나 글씨를 눌러 고르세요.</p>
         <button class="btn" id="stageNew">새로 시작</button>
@@ -1831,6 +1834,7 @@ const txt = { color: '#000000', font: 'thin' };
 const stageCv = $('#stage'), sctx2 = stageCv.getContext('2d');
 const SV = { z: 1, ox: 0, oy: 0 };   /* stage view: zoom and pan in 720px canvas space */
 const SS = 720;
+let sLock = false;                       /* decoration screen lock */
 
 function photoBase(p) {
   const was = p.cutDirty, cutC = withPhoto(p, makeCut), bx = p.cutBox;
@@ -2049,8 +2053,6 @@ function setZoom(z, cx, cy) {   /* zoom keeping the screen point (cx, cy) fixed 
   const k0 = sv.fit * SV.z, wx = (cx - SV.ox) / k0, wy = (cy - SV.oy) / k0;
   SV.z = sclamp(z, 0.5, 8); const k1 = sv.fit * SV.z; SV.ox = cx - wx * k1; SV.oy = cy - wy * k1; renderStage();
 }
-$('#zIn').addEventListener('click', () => setZoom(SV.z * 1.4));
-$('#zOut').addEventListener('click', () => setZoom(SV.z / 1.4));
 $('#zFit').addEventListener('click', () => { SV.z = 1; SV.ox = (sv.W - sSide()) / 2; SV.oy = (sv.H - sSide()) / 2; renderStage(); });
 function barDrag(trackId, thumbId, ax) {
   const track = $(trackId), thumb = $(thumbId); let d = null;
@@ -2070,6 +2072,7 @@ function syncSel() {
   markPal();
   const on = !!(sel && stage.includes(sel));
   ['selS', 'selR', 'selFlip', 'selDup', 'selUp', 'selDown', 'selDel'].forEach(id => { $('#' + id).disabled = !on; });
+  $('#selS').disabled = $('#selR').disabled = !on || sLock;
   $('#selBd').disabled = !(on && sel.type === 'shape'); $('#selBd').setAttribute('aria-pressed', String(!!(on && sel.bd)));
   $('#selSplit').disabled = !(on && sel.type === 'phrase' && sel.src.glyphs && sel.src.glyphs.filter(g => !g.space).length >= 2);
   $('#selHint').textContent = on ? ({ photo: '오린 이미지', phrase: '손글씨', text: '글씨', shape: '개체' }[sel.type]) + '를 고르셨습니다. 끌어서 옮기고, 모서리 네모로 크기, 위쪽 동그라미로 각도를 바꾸세요. 위의 슬라이드로도 바꿀 수 있습니다.' : '화면에서 이미지나 글씨를 눌러 고르세요.';
@@ -2110,7 +2113,17 @@ function handleAt(p) {
 const sRaw = e => { const r = stageCv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 const sPos = e => { const q = sRaw(e), k = sv.fit * SV.z; return [(q[0] - SV.ox) / k / 2, (q[1] - SV.oy) / k / 2]; };
 const sPtrs = new Map(); let sDrag = null, sPinch = null;
+const LOCK_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', LOCK_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
+function setLock(v) {                                        /* locked: the selected object cannot be moved / rotated / scaled in the work window; one finger scrolls the page up and down */
+  sLock = v; sDrag = null; sPinch = null; sPtrs.clear();
+  stageCv.classList.toggle('locked', v);
+  const b = $('#zLock'); b.setAttribute('aria-pressed', String(v)); b.setAttribute('aria-label', v ? '잠금 해제' : '잠금');
+  b.innerHTML = (v ? LOCK_OFF : LOCK_ON) + '<span id="zLockL">' + (v ? '잠금해제' : '잠금') + '</span>';
+  syncSel();
+}
+$('#zLock').addEventListener('click', () => setLock(!sLock));
 stageCv.addEventListener('pointerdown', e => {
+  if (sLock) return;
   stageCv.setPointerCapture(e.pointerId); sPtrs.set(e.pointerId, sRaw(e)); e.preventDefault();
   if (sPtrs.size === 2) {
     const [a, b] = [...sPtrs.values()];
@@ -2147,7 +2160,7 @@ stageCv.addEventListener('pointermove', e => {
 });
 const sEnd = e => { sPtrs.delete(e.pointerId); if (sPtrs.size < 2) sPinch = null; if (!sPtrs.size) sDrag = null; };
 stageCv.addEventListener('pointerup', sEnd); stageCv.addEventListener('pointercancel', sEnd);
-stageCv.addEventListener('wheel', e => { e.preventDefault(); const q = sRaw(e); setZoom(SV.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15), q[0], q[1]); }, { passive: false });
+stageCv.addEventListener('wheel', e => { if (sLock) return; e.preventDefault(); const q = sRaw(e); setZoom(SV.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15), q[0], q[1]); }, { passive: false });
 
 $('#selS').addEventListener('input', e => { if (sel) { sel.s = +e.target.value / 100; renderStage(); } });
 $('#selR').addEventListener('input', e => { if (sel) { sel.rot = +e.target.value; renderStage(); } });
