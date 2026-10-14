@@ -2029,7 +2029,7 @@ function pixelBgCard(items, S) {
   }
   drawItems(x, items, S); return c;
 }
-function cardCanvas(i, S) { return i === 1 ? pixelBgCard(res[i], S) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
+function cardCanvas(i, S) { return res[i].bub ? bubbleCard(res[i], S) : i === 1 ? pixelBgCard(res[i], S) : res[i].ring ? ringWithDeco(i, S) : drawCard(res[i], S); }
 function ringWithDeco(i, S) { const o = ringCard(drawCard(res[i], S), res[i].ring); if (res[i].deco) drawItems(o.getContext('2d'), res[i].deco, S); return o; }
 function drawCard(items, S = 360) { const c = mkCanvas(S, S); drawItems(c.getContext('2d'), items, S); return c; }
 
@@ -2550,14 +2550,89 @@ function ringDeco(items) {
   }
   return best;
 }
-const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기', '나이테'];
+/* ---------- card 6: 3-5 kinds of insertable objects arranged as a big background shape, behind everything ---------- */
+function bgShapeCard(items) {
+  const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
+  const mine = []; items.filter(isFixed).forEach(it => { if (!mine.some(m => m.src === it.src)) mine.push(it); });
+  const K = 3 + ((rng() * 3) | 0), kinds = mine.slice().sort(() => rng() - 0.5).slice(0, K).map(it => it.src);
+  while (kinds.length < K) { const [id, v] = lib[(rng() * lib.length) | 0]; const sp = shapeSrc(id, v); if (!kinds.includes(sp)) kinds.push(sp); }
+  const form = (rng() * 4) | 0, N = 6 + ((rng() * 5) | 0), pos = [];
+  const bigSize = () => rr(190, 270);                                   /* longest side in the 360 space */
+  if (form === 0) { const rx = rr(95, 120), ry = rr(95, 125), a0 = rng() * 6.28;   /* wreath around the middle */
+    for (let i = 0; i < N; i++) { const a = a0 + i / N * 6.28; pos.push([180 + Math.cos(a) * rx, 180 + Math.sin(a) * ry, rr(150, 210)]); } }
+  else if (form === 1) { const a = rr(-0.9, 0.9);                       /* diagonal band */
+    for (let i = 0; i < N; i++) { const t = (i / (N - 1) - 0.5) * 360; pos.push([180 + Math.cos(a) * t * 0.95 + rr(-18, 18), 180 + Math.sin(a) * t * 0.95 + rr(-18, 18), rr(150, 220)]); } }
+  else if (form === 2) { pos.push([180, 180, bigSize()]);               /* one big blob with satellites */
+    for (let i = 1; i < N; i++) { const a = rng() * 6.28, d = rr(70, 120); pos.push([180 + Math.cos(a) * d, 180 + Math.sin(a) * d, rr(110, 170)]); } }
+  else { for (let i = 0; i < N; i++) { const gx = i % 3, gy = Math.floor(i / 3);   /* loose rounded mass */
+      pos.push([90 + gx * 90 + rr(-25, 25), 100 + gy * 85 + rr(-25, 25), rr(130, 190)]); } }
+  const bg = pos.map(([x, y, size], i) => {
+    const q = { id: 0, type: 'shape', src: kinds[i % K], x: Math.max(30, Math.min(330, x)), y: Math.max(30, Math.min(330, y)), s: 1, rot: rr(-180, 180), flip: rng() < 0.5, bd: false };
+    q.s = size / Math.max(...fitSize(q)) * 1; return q;
+  });
+  return bg.concat(cloneItems(items));
+}
+/* ---------- card 7: text only gets a glossy inflated 3D look (balloon letters) ---------- */
+function edtField(f, w, h) {
+  const n = Math.max(w, h), col = new Float64Array(n), dd = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) col[y] = f[y * w + x]; edt1(col, h, dd, v, z); for (let y = 0; y < h; y++) f[y * w + x] = dd[y]; }
+  for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) col[x] = f[y * w + x]; edt1(col, w, dd, v, z); for (let x = 0; x < w; x++) f[y * w + x] = dd[x]; }
+  return f;
+}
+function inflate3d(src, color, S) {
+  const w = src.width, h = src.height, u = S / 360, a = src.getContext('2d').getImageData(0, 0, w, h).data, INF = 1e12, N = w * h;
+  const f = new Float64Array(N); for (let i = 0; i < N; i++) f[i] = a[i * 4 + 3] > 80 ? 0 : INF;
+  edtField(f, w, h);
+  const grow = 2 * u, m = new Float64Array(N); let any = false;
+  for (let i = 0; i < N; i++) { const ins = Math.sqrt(f[i]) <= grow; m[i] = ins ? INF : 0; if (ins) any = true; }
+  if (!any) return src;
+  edtField(m, w, h);
+  const R = 4.2 * u, H = new Float32Array(N), D = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const d = Math.sqrt(m[i]); D[i] = d; const t = Math.min(d, R); H[i] = d > 0 ? Math.sqrt(Math.max(0, t * (2 * R - t))) : 0; }
+  const B = new Float32Array(N), r = Math.max(1, Math.round(0.7 * u));         /* smooth the height field */
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { const xx = Math.min(w - 1, Math.max(0, x + k)); sum += H[y * w + xx]; c++; } B[y * w + x] = sum / c; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { const yy = Math.min(h - 1, Math.max(0, y + k)); sum += B[yy * w + x]; c++; } H[y * w + x] = sum / c; }
+  const base = hex3(/^#[0-9a-f]{6}$/i.test(color) ? color : '#ff5c93'), L = [-0.45, -0.6, 0.66], ln = Math.hypot(...L);
+  const lx = L[0] / ln, ly = L[1] / ln, lz = L[2] / ln, hx = lx, hy = ly, hz = lz + 1, hn = Math.hypot(hx, hy, hz);
+  const out = mkCanvas(w, h), ox = out.getContext('2d'), im = ox.createImageData(w, h), px = im.data;
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x, d = D[i]; if (d <= 0) continue;
+    const gx = (H[i + 1] - H[i - 1]) / 2, gy = (H[i + w] - H[i - w]) / 2, nl = Math.hypot(gx, gy, 1), nx = -gx / nl, ny = -gy / nl, nz = 1 / nl;
+    const dif = Math.max(0, nx * lx + ny * ly + nz * lz), spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hn), 46);
+    const rim = Math.pow(1 - nz, 2), under = Math.max(0, -(ny * 0.9 + nx * 0.3)) * rim, o = i * 4;
+    const sh = 0.62 + 0.55 * dif - 0.35 * rim;
+    for (let k = 0; k < 3; k++) {
+      let v = base[k] * sh + (255 - base[k]) * 0.18 * dif + 255 * spec * 0.95;
+      v += (k === 0 ? 40 : 0) * under;                               /* warm bounce light at the bottom rim */
+      px[o + k] = Math.max(0, Math.min(255, v));
+    }
+    px[o + 3] = Math.round(Math.min(1, d / 1.2) * 255);
+  }
+  ox.putImageData(im, 0, 0);
+  const fin = mkCanvas(w, h), fx = fin.getContext('2d');
+  fx.shadowColor = `rgba(${base[0] * .55 | 0},${base[1] * .4 | 0},${base[2] * .45 | 0},.45)`; fx.shadowBlur = 7 * u; fx.shadowOffsetX = 2.5 * u; fx.shadowOffsetY = 5 * u;
+  fx.drawImage(out, 0, 0);
+  return fin;
+}
+function bubbleCard(items, S) {
+  const c = mkCanvas(S, S), x = c.getContext('2d');
+  items.forEach(it => {
+    if (it.type !== 'text') { drawItems(x, [it], S); return; }
+    const t = mkCanvas(S, S), q = Object.assign({}, it, { bd: false, _bm: null, _bmk: '' }), sb = st.border;
+    st.border = 0; try { drawItems(t.getContext('2d'), [q], S); } finally { st.border = sb; }
+    x.drawImage(inflate3d(t, it.color, S), 0, 0);
+  });
+  return c;
+}
+const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기', '나이테', '배경 만들기', '3D 글씨'];
 const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
 function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
   const rg = cloneItems(items); rg.ring = ringParams(); rg.deco = ringDeco(items);
   const c1 = cloneItems(items); c1.px = pxParams();
-  return [c1, overlapCard(items), mix(chainCard), mix(poissonCard), rg];
+  const c7 = cloneItems(items); c7.bub = true;
+  return [c1, overlapCard(items), mix(chainCard), mix(poissonCard), rg, bgShapeCard(items), c7];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
