@@ -248,6 +248,15 @@ input[type=text]{width:100%;font:400 16px/1.3 var(--f-11),system-ui,sans-serif;p
 .zv .zthumb{left:1px;right:1px;top:0;height:100%}
 .zh .zthumb{top:1px;bottom:1px;left:0;width:100%}
 
+.stool{max-width:none;margin-inline:0}
+.stool .tb[disabled]{opacity:1;background:var(--g);color:var(--d);box-shadow:none;border-color:var(--d);cursor:default}
+.stool .tb{min-height:58px}
+.swrap{max-width:none;width:calc(100% - 44px);margin-inline:auto;flex:none;min-height:0;grid-template-rows:auto 34px}
+.swrap .sview{display:block;grid-column:1;grid-row:1;position:relative}
+.swrap .view{width:100%;max-width:none;margin:0;border:0}
+.swrap .view canvas{display:block;width:100%;height:auto}
+.swrap .ovbar{display:flex;flex-direction:column}
+.swrap .otrack{flex:1;min-height:0}
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px;padding:6px 6px 22px}
 #exps{margin-top:6px}
 .rcard{position:relative;padding:0;border:2px solid #000;cursor:pointer;aspect-ratio:1/1;box-shadow:3px 3px 0 #000;background-color:#fff1e8;background-image:linear-gradient(45deg,#c2c3c7 25%,transparent 25% 75%,#c2c3c7 75%),linear-gradient(45deg,#c2c3c7 25%,transparent 25% 75%,#c2c3c7 75%);background-size:16px 16px;background-position:0 0,8px 8px}
@@ -374,27 +383,34 @@ input,textarea,select{font-size:16px}
         <p class="hint">여기에 올린 배치가 결과의 기본 카드가 됩니다. 보관함에서 눌러 가져오고 화면에서 끌어 옮기세요. 위쪽 확대 버튼과 스크롤 막대로 화면을 키워 보며 맞출 수 있습니다.</p>
         <label class="rng line"><span>크기</span><input type="range" id="selS" min="10" max="400" step="10" value="100" disabled><output></output></label>
         <label class="rng line"><span>각도</span><input type="range" id="selR" min="-180" max="180" step="15" value="0" disabled><output></output></label>
-        <div class="zrow">
-          <div class="zbtns">
-            <button class="btn" id="zOut" aria-label="축소">－</button>
-            <button class="btn" id="zFit" aria-label="100%로 되돌리기">100%</button>
-            <button class="btn" id="zIn" aria-label="확대">＋</button>
-          </div>
-          <div class="zwrap">
-            <div class="view" id="stageView"><canvas id="stage" width="720" height="720" aria-label="꾸미기 화면"></canvas></div>
-            <div class="zv" id="zvbar" aria-label="세로 스크롤"><div class="zthumb" id="zvthumb"></div></div>
-            <div class="zh" id="zhbar" aria-label="가로 스크롤"><div class="zthumb" id="zhthumb"></div></div>
-            <div class="zc"></div>
-          </div>
+        <div class="otools stool" role="toolbar" aria-label="화면 도구">
+          <button class="tb" id="zIn" aria-label="확대"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-5-5M11 8v6M8 11h6"/></svg>확대</button>
+          <button class="tb" id="zOut" aria-label="축소"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-5-5M8 11h6"/></svg>축소</button>
+          <button class="tb" id="zFit" aria-label="전체 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span id="zFitL">100%</span></button>
+          <span class="tsep"></span>
+          <button class="tb" id="selUp" disabled aria-label="앞으로"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="11" height="11" rx="1"/><path d="M10 10h11v11H10z" fill="currentColor" fill-opacity=".25"/></svg>앞으로</button>
+          <button class="tb" id="selDown" disabled aria-label="뒤로"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="10" y="10" width="11" height="11" rx="1"/><path d="M3 3h11v11H3z" fill="currentColor" fill-opacity=".25"/></svg>뒤로</button>
         </div>
-        <div class="btnrow">
-          <button class="btn" id="selFlip" disabled>좌우<br>반전</button>
-          <button class="btn" id="selDup" disabled>복제</button>
-          <button class="btn" id="selSplit" disabled>글자<br>분해</button>
-          <button class="btn" id="selBd" disabled aria-pressed="false">개체<br>테두리</button>
-          <button class="btn" id="selUp" disabled>앞으로</button>
-          <button class="btn" id="selDown" disabled>뒤로</button>
-          <button class="btn" id="selDel" disabled>삭제</button>
+        <div class="otools stool" role="toolbar" aria-label="개체 도구">
+          <button class="tb" id="selFlip" disabled aria-label="좌우 반전"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8 7 3 12l5 5V7zM16 7l5 5-5 5V7z"/></svg>좌우반전</button>
+          <button class="tb" id="selDup" disabled aria-label="복제"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>복제</button>
+          <button class="tb" id="selSplit" disabled aria-label="글자 분해"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6M7 6v12M14 10h6M17 10v8M3 21h18" stroke-dasharray="0"/></svg>분해</button>
+          <button class="tb" id="selBd" disabled aria-pressed="false" aria-label="개체 테두리"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8L3.5 9.2l5.9-.9z"/></svg>테두리</button>
+          <button class="tb" id="selDel" disabled aria-label="삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>삭제</button>
+        </div>
+        <div class="owrap swrap">
+          <div class="ocv sview"><div class="view" id="stageView"><canvas id="stage" width="720" height="720" aria-label="꾸미기 화면"></canvas></div></div>
+          <div class="ovbar" aria-label="위아래 이동">
+            <button id="zUp" aria-label="위로 이동">▲</button>
+            <div class="otrack" id="zvbar"><div class="othumb" id="zvthumb" role="scrollbar" aria-orientation="vertical" aria-label="위아래 이동 막대"></div></div>
+            <button id="zDn" aria-label="아래로 이동">▼</button>
+          </div>
+          <div class="ohbar" aria-label="좌우 이동">
+            <button id="zLf" aria-label="왼쪽으로 이동">◀</button>
+            <div class="ohtrack" id="zhbar"><div class="ohthumb" id="zhthumb" role="scrollbar" aria-orientation="horizontal" aria-label="좌우 이동 막대"></div></div>
+            <button id="zRt" aria-label="오른쪽으로 이동">▶</button>
+          </div>
+          <div class="ocorner"></div>
         </div>
         <h3 class="sub">선택한 것 바꾸기</h3>
         <p class="hint" id="selHint">화면에서 이미지나 글씨를 눌러 고르세요.</p>
@@ -1983,7 +1999,7 @@ function renderStage() {
     x.restore();
   }
   x.setTransform(1, 0, 0, 1, 0, 0);
-  updateZBars(); $('#zFit').textContent = Math.round(SV.z * 100) + '%';
+  updateZBars(); $('#zFitL').textContent = Math.round(SV.z * 100) + '%';
   syncSel();
 }
 function updateZBars() {
@@ -2016,6 +2032,9 @@ function barDrag(barId, thumbId, axis) {
   });
 }
 barDrag('#zvbar', '#zvthumb', 'y'); barDrag('#zhbar', '#zhthumb', 'x');
+const zStep = (dx, dy) => { SV.ox += dx * SS * 0.15; SV.oy += dy * SS * 0.15; renderStage(); };   /* arrow buttons, like the cut-out screen */
+$('#zUp').addEventListener('click', () => zStep(0, 1)); $('#zDn').addEventListener('click', () => zStep(0, -1));
+$('#zLf').addEventListener('click', () => zStep(1, 0)); $('#zRt').addEventListener('click', () => zStep(-1, 0));
 function syncSel() {
   markPal();
   const on = !!(sel && stage.includes(sel));
