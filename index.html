@@ -410,7 +410,7 @@ input,textarea,select{font-size:16px}
     <section class="panel" id="p3" aria-label="4단계 결과">
       <div class="card stack">
         <h2>결과</h2>
-        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 격자선을 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 다시 만들기를 누르면 랜덤2와 랜덤3이 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
+        <p class="hint">첫 카드(기본)는 꾸미기에서 올린 그대로입니다. 랜덤1은 같은 배치를 픽셀아트(점 크기 4, 색 64개, 채도 100%)로 변환한 카드, 랜덤2는 카드를 2×2~5×5칸으로 나누고 칸마다 개체를 하나씩 무작위로 놓은 카드(크기는 칸의 0.5~0.9배, 글씨는 방향 그대로, 이미지는 좌우·상하로 뒤집힘, 테두리 없는 개체는 격자선을 따라 점선처럼 작게 깔림), 랜덤3은 글씨를 무작위 순서로 반복해 카드 맨 위부터 4~10줄을 배경처럼 가득 깔고 이미지를 하나 비스듬히 놓은 카드입니다. 랜덤4는 푸아송 디스크 방식으로 개체를 서로 일정 거리 이상 떨어뜨려 뭉침 없이 고르게 흩뿌린 카드입니다. 다시 만들기를 누르면 랜덤2·3·4가 새로 만들어집니다. 테두리를 켜지 않은 개체는 랜덤2에서는 점선 장식으로, 랜덤3에서는 제자리 배경으로 쓰이고, 테두리가 있는 것들만 섞여 배치됩니다.</p>
         <button id="shuffle" class="btn primary">랜덤 3장 다시 만들기</button>
         <p class="hint" id="emptyMsg" hidden>꾸미기에 올린 것이 없습니다. 3단계에서 보관함의 이미지나 손글씨를 가져와 주세요.</p>
         <div class="rgrid" id="rgrid"></div>
@@ -2303,12 +2303,51 @@ function chainCard(items) {
   }
   return out;
 }
-const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결'];
+/* 4) Poisson-disk scatter: random points kept at least r apart (Bridson), one object per point -> even, never clumped, never overlapping */
+const R4 = { rMin: 60, rMax: 100, k: 30, edge: 0.35, sizeMin: 0.45, sizeMax: 0.7, mirrorH: 0.5, mirrorV: 0.5 };
+function poissonPoints(r, edge) {
+  const lo = r * edge, hi = 360 - r * edge, cell = r / Math.SQRT2, G = Math.ceil(360 / cell), grid = new Array(G * G).fill(-1), pts = [], act = [];
+  const add = p => { pts.push(p); act.push(pts.length - 1); grid[((p[1] / cell) | 0) * G + ((p[0] / cell) | 0)] = pts.length - 1; };
+  const ok = p => {                                          /* distance d = sqrt(dx^2 + dy^2) >= r to every neighbour */
+    if (p[0] < lo || p[0] > hi || p[1] < lo || p[1] > hi) return false;
+    const gx = (p[0] / cell) | 0, gy = (p[1] / cell) | 0;
+    for (let y = Math.max(0, gy - 2); y <= Math.min(G - 1, gy + 2); y++) for (let x = Math.max(0, gx - 2); x <= Math.min(G - 1, gx + 2); x++) {
+      const q = pts[grid[y * G + x]]; if (q && Math.hypot(q[0] - p[0], q[1] - p[1]) < r) return false;
+    }
+    return true;
+  };
+  add([rr(lo, hi), rr(lo, hi)]);
+  while (act.length) {
+    const ai = (rng() * act.length) | 0, c = pts[act[ai]]; let found = false;
+    for (let t = 0; t < R4.k; t++) {
+      const a = rng() * Math.PI * 2, d = rr(r, 2 * r), p = [c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d];
+      if (ok(p)) { add(p); found = true; break; }
+    }
+    if (!found) act.splice(ai, 1);
+  }
+  return pts;
+}
+function poissonCard(items) {
+  const pool = items;
+  if (!pool.length) return [];
+  const r = rr(R4.rMin, R4.rMax), pts = poissonPoints(r, R4.edge).sort(() => rng() - 0.5), out = [];
+  let seq = [];
+  while (seq.length < pts.length) seq = seq.concat(pool.slice().sort(() => rng() - 0.5));
+  pts.forEach((p, i) => {
+    const src = seq[i], q = withS(src, 1), m = Math.max(...fitSize(q));
+    q.s = r * rr(R4.sizeMin, R4.sizeMax) / m;                /* side <= 0.7 r: circumcircle <= r, so neighbours never touch */
+    q.x = p[0]; q.y = p[1]; q.rot = 0; q.flip = false;
+    if (isImg(src)) { const h = rng() < R4.mirrorH, v = rng() < R4.mirrorV; q.flip = h !== v; q.rot = v ? 180 : 0; }
+    out.push(q);
+  });
+  return out;
+}
+const RTAGS = ['기본', '픽셀아트', '이미지 랜덤', '글씨 연결', '고르게 흩뿌리기'];
 const isFixed = it => it.type === 'shape' && !it.bd;   /* borderless objects stay put as the background */
 function threeCards(items) {
   const fixed = items.filter(isFixed), mov = items.filter(it => !isFixed(it));
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
-  return [cloneItems(items), overlapCard(items), mix(chainCard)];
+  return [cloneItems(items), overlapCard(items), mix(chainCard), mix(poissonCard)];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
   const base = keepDefault && res[0] ? res[0] : cloneItems(stage);
