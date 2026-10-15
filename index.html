@@ -2578,7 +2578,7 @@ function bgShapeCard(items) {
   if (!cnt[2] && !cnt[3]) cnt[rng() < 0.5 ? 2 : 3] = 1;
   const tiers = []; for (let t = 3; t >= 0; t--) for (let n = 0; n < cnt[t]; n++) tiers.push(t);   /* big first */
   const placed = [], out = []; let kc = (rng() * K) | 0, big = null;
-  const side = t => R6.unit * R6.ratio[t];
+  const side = t => R6.unit * R6.ratio[t] * (t === 0 ? 2 : 1);    /* the smallest ratio is doubled */
   for (const t of tiers) {
     const size = side(t), q = { id: 0, type: 'shape', src: kinds[kc++ % K], x: 180, y: 180, s: 1, rot: rr(-180, 180), flip: rng() < 0.5, bd: false };
     q.s = size / Math.max(...fitSize(q)); const [fw, fh] = fitSize(q), rad = Math.hypot(fw, fh) / 2 * 0.62;
@@ -2594,7 +2594,7 @@ function bgShapeCard(items) {
     if (ok) { q.bgp = true; out.push(q); }
   }
   const all = out.concat(cloneItems(items));
-  if (rng() < 0.5) { const a = (rng() * 8 | 0) * Math.PI / 4 + Math.PI / 8 * (rng() < 0.5 ? 0 : 1); all.ext = { dx: Math.cos(a), dy: Math.sin(a), len: rr(28, 70) }; }   /* 3D extrusion for ALL background pieces */
+  if (rng() < 0.5) { const a = (rng() * 8 | 0) * Math.PI / 4 + Math.PI / 8 * (rng() < 0.5 ? 0 : 1); all.ext = { dx: Math.cos(a), dy: Math.sin(a), len: rr(28, 70), steps: 3 + ((rng() * 6) | 0), smooth: rng() < 0.5, d0: rr(0.1, 0.3), d1: rr(0.45, 0.75), hue: [30 + (rng() * 30 | 0), 10 + (rng() * 30 | 0), 50 + (rng() * 40 | 0)] }; }   /* 3D extrusion for ALL background pieces */
   return all;
 }
 /* 3D extruded background pieces: the piece is stretched along one direction in darker shades (like the sample lettering) */
@@ -2604,11 +2604,12 @@ function extrudeCard(items, S) {
     if (!it.bgp) { drawItems(x, [it], S); return; }
     const [fw, fh] = fitSize(it), G = Math.ceil(Math.hypot(fw, fh) * u) + 6, g = mkCanvas(G, G), q = Object.assign({}, it, { x: G / 2 / u, y: G / 2 / u });
     drawItems(g.getContext('2d'), [q], G);
-    const shade = a => { const d = mkCanvas(G, G), dx = d.getContext('2d'); dx.drawImage(g, 0, 0); dx.globalCompositeOperation = 'source-atop'; dx.fillStyle = `rgba(30,10,50,${a})`; dx.fillRect(0, 0, G, G); return d; };
-    const d1 = shade(0.28), d2 = shade(0.45), d3 = shade(0.6), n = Math.round(E.len * u);
+    const L = E.smooth ? 14 : E.steps, [hr, hg, hb] = E.hue;      /* 3-8 shade steps; or a smooth gradient across 14 fine levels */
+    const shade = a => { const d = mkCanvas(G, G), dx = d.getContext('2d'); dx.drawImage(g, 0, 0); dx.globalCompositeOperation = 'source-atop'; dx.fillStyle = `rgba(${hr},${hg},${hb},${a})`; dx.fillRect(0, 0, G, G); return d; };
+    const lv = Array.from({ length: L }, (_, i) => shade(E.d0 + (E.d1 - E.d0) * (L > 1 ? i / (L - 1) : 1))), n = Math.round(E.len * u);
     for (let t = n; t >= 1; t--) {
       const k = t / n, px = it.x * u - G / 2 + E.dx * t, py = it.y * u - G / 2 + E.dy * t;
-      x.drawImage(k > 0.66 ? d3 : k > 0.33 ? d2 : d1, px, py);
+      x.drawImage(lv[Math.min(L - 1, Math.floor(k * L))], px, py);
     }
     x.drawImage(g, it.x * u - G / 2, it.y * u - G / 2);
   });
@@ -2635,8 +2636,8 @@ function layerOf(D, w, h, r, col, dx, dy) {       /* letters grown by r px, flat
   x.putImageData(im, 0, 0);
   if (!dx && !dy) return c; const o = mkCanvas(w, h); o.getContext('2d').drawImage(c, dx, dy); return o;
 }
-function inflate3d(D, w, h, colorHex, u) {      /* glossy balloon: height field from the distance to the outside */
-  const N = w * h, grow = 3 * u, R = 5.5 * u, H = new Float32Array(N), Dm = new Float32Array(N);
+function inflate3d(D, w, h, colorHex, u, grow, R) {      /* glossy balloon: height field from the distance to the outside */
+  const N = w * h, H = new Float32Array(N), Dm = new Float32Array(N);
   const f = new Float64Array(N); for (let i = 0; i < N; i++) f[i] = D[i] <= grow ? 1e12 : 0;
   edtField(f, w, h);
   for (let i = 0; i < N; i++) { const d = Math.sqrt(f[i]); Dm[i] = d; const t = Math.min(d, R); H[i] = d > 0 ? Math.sqrt(Math.max(0, t * (2 * R - t))) : 0; }
@@ -2668,15 +2669,24 @@ function halftoneFill(D, w, h, grow, dot, u) {   /* cream letters filled with a 
   }
   x.putImageData(im, 0, 0); return c;
 }
+function strokeWidth(D, w, h) {      /* typical stroke width (px) of the letters: from the mean distance to the edge inside the strokes */
+  const N = w * h, f = new Float64Array(N); let n = 0;
+  for (let i = 0; i < N; i++) { f[i] = D[i] === 0 ? 1e12 : 0; if (D[i] === 0) n++; }
+  edtField(f, w, h); let sum = 0; for (let i = 0; i < N; i++) if (D[i] === 0) sum += Math.sqrt(f[i]);
+  return n ? Math.max(1, 4 * sum / n) : 1;
+}
 function popText(src, it, fx, S) {
   const w = src.width, h = src.height, u = S / 360, D = distOut(src); if (!D) return src;
-  const col = popTextColor(it.color), out = mkCanvas(w, h), x = out.getContext('2d'), grow = 1.7 * u;   /* letters are made bolder */
-  if (fx === 'balloon') { x.drawImage(inflate3d(D, w, h, col, u), 0, 0); return out; }
-  const dxy = 3.4 * u;
-  x.drawImage(layerOf(D, w, h, grow + 3.4 * u, POP_NAVY, dxy, dxy * 1.1), 0, 0);              /* hard drop shadow */
-  x.drawImage(layerOf(D, w, h, grow + 3.4 * u, POP_NAVY, 0, 0), 0, 0);                         /* dark outline */
-  if (fx === 'bang') x.drawImage(layerOf(D, w, h, grow + 1.8 * u, '#0a9bbf', 0, 0), 0, 0);     /* teal ring */
-  else x.drawImage(layerOf(D, w, h, grow + 1.6 * u, POP_CREAM, 0, 0), 0, 0);                   /* cream ring */
+  const col = popTextColor(it.color), out = mkCanvas(w, h), x = out.getContext('2d');
+  /* the thickening follows the stroke width and the letter size: thin / small letters stay open, big letters may get much bolder */
+  const sw = strokeWidth(D, w, h), th = fitSize(it)[1], big = th > 60, ff = big ? rr(0.15, 0.6) : rr(0.12, 0.3);
+  const grow = Math.min(sw * ff, big ? 7 * u : 2.4 * u), k = Math.max(0.6, Math.min(2.4, sw / (3 * u)));   /* k: outline / ring / shadow scale */
+  if (fx === 'balloon') { x.drawImage(inflate3d(D, w, h, col, u, grow, Math.max(2.6 * u, Math.min(14 * u, sw * 0.7 + grow))), 0, 0); return out; }
+  const dxy = 3.4 * u * k;
+  x.drawImage(layerOf(D, w, h, grow + 3.4 * u * k, POP_NAVY, dxy, dxy * 1.1), 0, 0);              /* hard drop shadow */
+  x.drawImage(layerOf(D, w, h, grow + 3.4 * u * k, POP_NAVY, 0, 0), 0, 0);                         /* dark outline */
+  if (fx === 'bang') x.drawImage(layerOf(D, w, h, grow + 1.8 * u * k, '#0a9bbf', 0, 0), 0, 0);     /* teal ring */
+  else x.drawImage(layerOf(D, w, h, grow + 1.6 * u * k, POP_CREAM, 0, 0), 0, 0);                   /* cream ring */
   if (fx === 'halftone') x.drawImage(halftoneFill(D, w, h, grow, col, u), 0, 0);
   else x.drawImage(layerOf(D, w, h, grow, fx === 'bang' ? POP_CREAM : col, 0, 0), 0, 0);
   return out;
