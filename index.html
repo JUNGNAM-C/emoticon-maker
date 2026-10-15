@@ -2500,12 +2500,10 @@ const R5_SETS = {
   '파스텔': ([h, s, l]) => hsl2hex(h, 0.7, 0.84),
   '빈티지': ([h, s, l]) => hsl2hex(h, s * 0.5, Math.min(0.66, l * 0.85 + 0.05)),
   '네온': ([h, s, l]) => hsl2hex(h + 8, 1, 0.58),
-  '딥 톤': ([h, s, l]) => hsl2hex(h, 0.65, 0.34),
-  '모노(한 색상)': null
+  '딥 톤': ([h, s, l]) => hsl2hex(h, 0.65, 0.34)
 };
 function ringPalette() {
-  const names = Object.keys(R5_SETS), name = names[(rng() * names.length) | 0], f = R5_SETS[name], n = R5_RING.length;
-  if (!f) { const h = rng() * 360; return R5_RING.map((_, i) => hsl2hex(h + (i % 3 - 1) * 6, 0.55 + 0.2 * (i % 2), 0.9 - i / (n - 1) * 0.55)); }
+  const names = Object.keys(R5_SETS), name = names[(rng() * names.length) | 0], f = R5_SETS[name];
   return R5_RING.map(c => { const r = f(rgb2hsl(c)); return typeof r === 'string' && r[0] === '#' && r.length === 7 ? r : c; });
 }
 function ringColors() {
