@@ -2551,7 +2551,7 @@ function ringDeco(items) {
   return best;
 }
 /* ---------- card 6: 3-5 kinds of insertable objects as a big, non-overlapping background (size ratio 1:3:9:16), behind everything ---------- */
-const R6 = { unit: 13, ratio: [1, 3, 9, 16], max: [5, 3, 1, 1], centre: 0.3 };
+const R6 = { unit: 26, ratio: [1, 3, 9, 16], max: [5, 3, 1, 1], centre: 0.3 };
 function bgShapeCard(items) {
   const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
   const mine = []; items.filter(isFixed).forEach(it => { if (!mine.some(m => m.src === it.src)) mine.push(it); });
@@ -2561,7 +2561,7 @@ function bgShapeCard(items) {
   if (!cnt[2] && !cnt[3]) cnt[rng() < 0.5 ? 2 : 3] = 1;
   const tiers = []; for (let t = 3; t >= 0; t--) for (let n = 0; n < cnt[t]; n++) tiers.push(t);   /* big first */
   const placed = [], out = []; let kc = (rng() * K) | 0, big = null;
-  const side = t => Math.min(R6.unit * R6.ratio[t], 360);
+  const side = t => R6.unit * R6.ratio[t];
   for (const t of tiers) {
     const size = side(t), q = { id: 0, type: 'shape', src: kinds[kc++ % K], x: 180, y: 180, s: 1, rot: rr(-180, 180), flip: rng() < 0.5, bd: false };
     q.s = size / Math.max(...fitSize(q)); const [fw, fh] = fitSize(q), rad = Math.hypot(fw, fh) / 2 * 0.62;
