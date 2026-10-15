@@ -2484,21 +2484,23 @@ function poissonCard(items) {
 /* 5) tree-ring card: default layout, with coloured contour lines growing outward from the silhouette like growth rings (random colours, wobble, spacing) */
 const R5 = { gap: 7, pitchMin: 6, pitchMax: 9, lineMin: 3, lineMax: 5, wobble: 2.2, blur: 0.02,
   pal: ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa', '#c8a2ff', '#008751', '#ab5236', '#b5e61d'] };
-/* colour sequences for the rings: random or a formula over the ring number k (the same colour may come back) */
+/* ring colours, taken from the sample drawing: warm cream / yellow / orange / red / pink with a few cool accents.
+   Neighbouring rings are always similar colours (a walk around the colour circle with momentum, so it sweeps like a rainbow); the
+   palette is fixed, only the order changes per image; no repeating pattern. */
+const R5_RING = ['#f7e6b8', '#f3d27a', '#efb62e', '#ee8a2e', '#e8552c', '#d93a3a', '#e8667f', '#ee93a8', '#b88ac0', '#5f86c8', '#4aa9b8', '#86c25a'];
 function ringColors() {
-  const P = R5.pal.slice().sort(() => rng() - 0.5), n = P.length, cols = [], mode = (rng() * 7) | 0, d = 1 + ((rng() * 5) | 0), o = (rng() * n) | 0;
-  const per = 2 + ((rng() * 3) | 0), cyc = Array.from({ length: per }, () => (rng() * n) | 0), w = rr(0.25, 0.7), ph = rng() * 6.283;
-  let f0 = 1, f1 = 1;
+  const P = R5_RING.slice(), n = P.length, cols = [], rot = (rng() * n) | 0, dirSign = rng() < 0.5 ? 1 : -1;
+  let pos = rot, dir = dirSign, last = -1;
   for (let k = 0; k < 120; k++) {
-    let i;
-    if (mode === 0) { do { i = (rng() * n) | 0; } while (k && P[i] === cols[k - 1]); }                 /* random */
-    else if (mode === 1) i = o + k * d;                                                              /* arithmetic: step d */
-    else if (mode === 2) { i = f0 + o; const t = (f0 + f1) % 997; f0 = f1; f1 = t; }               /* Fibonacci */
-    else if (mode === 3) i = o + k * k;                                                              /* squares */
-    else if (mode === 4) i = cyc[k % per];                                                           /* short repeating pattern */
-    else if (mode === 5) i = Math.floor(n / 2 * (1 + Math.sin(k * w + ph)) + o * 0);                 /* slow wave */
-    else i = (k % 2 ? cyc[0] : cyc[1]) + (Math.floor(k / 6) % 2) * 3;                               /* two tones that shift every 6 rings */
-    cols.push(P[((i % n) + n) % n]);
+    let step;
+    do {
+      step = rng() < 0.72 ? dir : -dir; if (rng() < 0.3) step *= 2;       /* mostly keeps going the same way, sometimes steps back / skips one */
+    } while (step === 0);
+    let np = ((pos + step) % n + n) % n;
+    if (np === last) np = ((pos + dir * 2) % n + n) % n;                     /* never the same colour as the neighbouring ring */
+    if (np === pos) np = ((pos + dir) % n + n) % n;
+    if (step !== dir && Math.sign(step) !== dir) dir = -dir;                 /* turned around: keep the new direction */
+    last = pos; pos = np; cols.push(P[pos]);
   }
   return cols;
 }
