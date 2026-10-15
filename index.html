@@ -2550,77 +2550,108 @@ function ringDeco(items) {
   }
   return best;
 }
-/* ---------- card 6: 3-5 kinds of insertable objects arranged as a big background shape, behind everything ---------- */
+/* ---------- card 6: 3-5 kinds of insertable objects as a big, non-overlapping background (size ratio 1:3:9:16), behind everything ---------- */
+const R6 = { unit: 13, ratio: [1, 3, 9, 16], max: [5, 3, 1, 1], centre: 0.3 };
 function bgShapeCard(items) {
   const lib = []; SHAPE_SETS.forEach(([, list], si) => list.forEach((v, i) => lib.push([`o${si}_${i}`, v])));
   const mine = []; items.filter(isFixed).forEach(it => { if (!mine.some(m => m.src === it.src)) mine.push(it); });
   const K = 3 + ((rng() * 3) | 0), kinds = mine.slice().sort(() => rng() - 0.5).slice(0, K).map(it => it.src);
   while (kinds.length < K) { const [id, v] = lib[(rng() * lib.length) | 0]; const sp = shapeSrc(id, v); if (!kinds.includes(sp)) kinds.push(sp); }
-  const form = (rng() * 4) | 0, N = 6 + ((rng() * 5) | 0), pos = [];
-  const bigSize = () => rr(190, 270);                                   /* longest side in the 360 space */
-  if (form === 0) { const rx = rr(95, 120), ry = rr(95, 125), a0 = rng() * 6.28;   /* wreath around the middle */
-    for (let i = 0; i < N; i++) { const a = a0 + i / N * 6.28; pos.push([180 + Math.cos(a) * rx, 180 + Math.sin(a) * ry, rr(150, 210)]); } }
-  else if (form === 1) { const a = rr(-0.9, 0.9);                       /* diagonal band */
-    for (let i = 0; i < N; i++) { const t = (i / (N - 1) - 0.5) * 360; pos.push([180 + Math.cos(a) * t * 0.95 + rr(-18, 18), 180 + Math.sin(a) * t * 0.95 + rr(-18, 18), rr(150, 220)]); } }
-  else if (form === 2) { pos.push([180, 180, bigSize()]);               /* one big blob with satellites */
-    for (let i = 1; i < N; i++) { const a = rng() * 6.28, d = rr(70, 120); pos.push([180 + Math.cos(a) * d, 180 + Math.sin(a) * d, rr(110, 170)]); } }
-  else { for (let i = 0; i < N; i++) { const gx = i % 3, gy = Math.floor(i / 3);   /* loose rounded mass */
-      pos.push([90 + gx * 90 + rr(-25, 25), 100 + gy * 85 + rr(-25, 25), rr(130, 190)]); } }
-  const bg = pos.map(([x, y, size], i) => {
-    const q = { id: 0, type: 'shape', src: kinds[i % K], x: Math.max(30, Math.min(330, x)), y: Math.max(30, Math.min(330, y)), s: 1, rot: rr(-180, 180), flip: rng() < 0.5, bd: false };
-    q.s = size / Math.max(...fitSize(q)) * 1; return q;
-  });
-  return bg.concat(cloneItems(items));
+  const cnt = [2 + ((rng() * 4) | 0), 1 + ((rng() * 3) | 0), rng() < 0.7 ? 1 : 0, rng() < 0.7 ? 1 : 0];   /* 1:max 5, 3:max 3, 9 and 16: max 1 each */
+  if (!cnt[2] && !cnt[3]) cnt[rng() < 0.5 ? 2 : 3] = 1;
+  const tiers = []; for (let t = 3; t >= 0; t--) for (let n = 0; n < cnt[t]; n++) tiers.push(t);   /* big first */
+  const placed = [], out = []; let kc = (rng() * K) | 0, big = null;
+  const side = t => Math.min(R6.unit * R6.ratio[t], 360);
+  for (const t of tiers) {
+    const size = side(t), q = { id: 0, type: 'shape', src: kinds[kc++ % K], x: 180, y: 180, s: 1, rot: rr(-180, 180), flip: rng() < 0.5, bd: false };
+    q.s = size / Math.max(...fitSize(q)); const [fw, fh] = fitSize(q), rad = Math.hypot(fw, fh) / 2 * 0.62;
+    let ok = false;
+    for (let tr = 0; tr < 400 && !ok; tr++) {
+      let x, y;
+      if (!big) { const a = rng() * 6.283, d = Math.sqrt(rng()) * 360 * R6.centre * 0.5; x = 180 + Math.cos(a) * d; y = 180 + Math.sin(a) * d; }   /* biggest: within 30% of the middle */
+      else { const a = rng() * 6.283, d = big.r + rad + rr(0, 120 + tr * 0.3); x = big.x + Math.cos(a) * d; y = big.y + Math.sin(a) * d; }
+      if (x < rad * 0.5 || y < rad * 0.5 || x > 360 - rad * 0.5 || y > 360 - rad * 0.5) continue;
+      if (placed.some(p => Math.hypot(p.x - x, p.y - y) < p.r + rad + 3)) continue;
+      q.x = x; q.y = y; placed.push({ x, y, r: rad }); if (!big) big = placed[0]; ok = true;
+    }
+    if (ok) out.push(q);
+  }
+  return out.concat(cloneItems(items));
 }
-/* ---------- card 7: text only gets a glossy inflated 3D look (balloon letters) ---------- */
+/* ---------- card 7: text / handwriting gets a pop-art 3D look: balloon, comic outline, bang, halftone ---------- */
+const FX_LIST = ['balloon', 'comic', 'bang', 'halftone'];
+const POP_TXT = ['#ff2d6f', '#e8105a', '#0aa5c8', '#ffd400', '#ff7a00', '#7b2fbe', '#1faa2e'], POP_NAVY = '#14213d', POP_CREAM = '#f3efe2';
+const popTextColor = c => { const q = hex3(/^#[0-9a-f]{6}$/i.test(c) ? c : '#ff2d6f'); let best = POP_TXT[0], bd = 1e9; POP_TXT.forEach(p => { const h = hex3(p), d = Math.abs(h[0] - q[0]) + Math.abs(h[1] - q[1]) + Math.abs(h[2] - q[2]); if (d < bd) { bd = d; best = p; } }); return best; };
 function edtField(f, w, h) {
   const n = Math.max(w, h), col = new Float64Array(n), dd = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
   for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) col[y] = f[y * w + x]; edt1(col, h, dd, v, z); for (let y = 0; y < h; y++) f[y * w + x] = dd[y]; }
   for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) col[x] = f[y * w + x]; edt1(col, w, dd, v, z); for (let x = 0; x < w; x++) f[y * w + x] = dd[x]; }
   return f;
 }
-function inflate3d(src, color, S) {
-  const w = src.width, h = src.height, u = S / 360, a = src.getContext('2d').getImageData(0, 0, w, h).data, INF = 1e12, N = w * h;
-  const f = new Float64Array(N); for (let i = 0; i < N; i++) f[i] = a[i * 4 + 3] > 80 ? 0 : INF;
+function distOut(src) {          /* distance (px) to the nearest letter pixel, 0 inside the letters */
+  const w = src.width, h = src.height, a = src.getContext('2d').getImageData(0, 0, w, h).data, N = w * h, f = new Float64Array(N);
+  let any = false; for (let i = 0; i < N; i++) { const ink = a[i * 4 + 3] > 80; f[i] = ink ? 0 : 1e12; if (ink) any = true; }
+  if (!any) return null; edtField(f, w, h); const D = new Float32Array(N); for (let i = 0; i < N; i++) D[i] = Math.sqrt(f[i]); return D;
+}
+function layerOf(D, w, h, r, col, dx, dy) {       /* letters grown by r px, flat colour, optional offset */
+  const c = mkCanvas(w, h), x = c.getContext('2d'), im = x.createImageData(w, h), px = im.data, C = hex3(col);
+  for (let i = 0; i < w * h; i++) { const k = Math.max(0, Math.min(1, r - D[i] + 0.5)); if (k > 0) { px[i * 4] = C[0]; px[i * 4 + 1] = C[1]; px[i * 4 + 2] = C[2]; px[i * 4 + 3] = k * 255; } }
+  x.putImageData(im, 0, 0);
+  if (!dx && !dy) return c; const o = mkCanvas(w, h); o.getContext('2d').drawImage(c, dx, dy); return o;
+}
+function inflate3d(D, w, h, colorHex, u) {      /* glossy balloon: height field from the distance to the outside */
+  const N = w * h, grow = 3 * u, R = 5.5 * u, H = new Float32Array(N), Dm = new Float32Array(N);
+  const f = new Float64Array(N); for (let i = 0; i < N; i++) f[i] = D[i] <= grow ? 1e12 : 0;
   edtField(f, w, h);
-  const grow = 2 * u, m = new Float64Array(N); let any = false;
-  for (let i = 0; i < N; i++) { const ins = Math.sqrt(f[i]) <= grow; m[i] = ins ? INF : 0; if (ins) any = true; }
-  if (!any) return src;
-  edtField(m, w, h);
-  const R = 4.2 * u, H = new Float32Array(N), D = new Float32Array(N);
-  for (let i = 0; i < N; i++) { const d = Math.sqrt(m[i]); D[i] = d; const t = Math.min(d, R); H[i] = d > 0 ? Math.sqrt(Math.max(0, t * (2 * R - t))) : 0; }
-  const B = new Float32Array(N), r = Math.max(1, Math.round(0.7 * u));         /* smooth the height field */
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { const xx = Math.min(w - 1, Math.max(0, x + k)); sum += H[y * w + xx]; c++; } B[y * w + x] = sum / c; }
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { const yy = Math.min(h - 1, Math.max(0, y + k)); sum += B[yy * w + x]; c++; } H[y * w + x] = sum / c; }
-  const base = hex3(/^#[0-9a-f]{6}$/i.test(color) ? color : '#ff5c93'), L = [-0.45, -0.6, 0.66], ln = Math.hypot(...L);
-  const lx = L[0] / ln, ly = L[1] / ln, lz = L[2] / ln, hx = lx, hy = ly, hz = lz + 1, hn = Math.hypot(hx, hy, hz);
+  for (let i = 0; i < N; i++) { const d = Math.sqrt(f[i]); Dm[i] = d; const t = Math.min(d, R); H[i] = d > 0 ? Math.sqrt(Math.max(0, t * (2 * R - t))) : 0; }
+  const B = new Float32Array(N), r = Math.max(1, Math.round(0.8 * u));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { sum += H[y * w + Math.min(w - 1, Math.max(0, x + k))]; c++; } B[y * w + x] = sum / c; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let sum = 0, c = 0; for (let k = -r; k <= r; k++) { sum += B[Math.min(h - 1, Math.max(0, y + k)) * w + x]; c++; } H[y * w + x] = sum / c; }
+  const base = hex3(colorHex), L = [-0.45, -0.6, 0.66], ln = Math.hypot(...L), lx = L[0] / ln, ly = L[1] / ln, lz = L[2] / ln, hx = lx, hy = ly, hz = lz + 1, hn = Math.hypot(hx, hy, hz);
   const out = mkCanvas(w, h), ox = out.getContext('2d'), im = ox.createImageData(w, h), px = im.data;
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x, d = D[i]; if (d <= 0) continue;
+    const i = y * w + x, d = Dm[i]; if (d <= 0) continue;
     const gx = (H[i + 1] - H[i - 1]) / 2, gy = (H[i + w] - H[i - w]) / 2, nl = Math.hypot(gx, gy, 1), nx = -gx / nl, ny = -gy / nl, nz = 1 / nl;
-    const dif = Math.max(0, nx * lx + ny * ly + nz * lz), spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hn), 46);
-    const rim = Math.pow(1 - nz, 2), under = Math.max(0, -(ny * 0.9 + nx * 0.3)) * rim, o = i * 4;
-    const sh = 0.62 + 0.55 * dif - 0.35 * rim;
-    for (let k = 0; k < 3; k++) {
-      let v = base[k] * sh + (255 - base[k]) * 0.18 * dif + 255 * spec * 0.95;
-      v += (k === 0 ? 40 : 0) * under;                               /* warm bounce light at the bottom rim */
-      px[o + k] = Math.max(0, Math.min(255, v));
-    }
+    const dif = Math.max(0, nx * lx + ny * ly + nz * lz), spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hn), 46), rim = Math.pow(1 - nz, 2), o = i * 4, sh = 0.64 + 0.55 * dif - 0.35 * rim;
+    for (let k = 0; k < 3; k++) px[o + k] = Math.max(0, Math.min(255, base[k] * sh + (255 - base[k]) * 0.18 * dif + 255 * spec * 0.95));
     px[o + 3] = Math.round(Math.min(1, d / 1.2) * 255);
   }
   ox.putImageData(im, 0, 0);
   const fin = mkCanvas(w, h), fx = fin.getContext('2d');
   fx.shadowColor = `rgba(${base[0] * .55 | 0},${base[1] * .4 | 0},${base[2] * .45 | 0},.45)`; fx.shadowBlur = 7 * u; fx.shadowOffsetX = 2.5 * u; fx.shadowOffsetY = 5 * u;
-  fx.drawImage(out, 0, 0);
-  return fin;
+  fx.drawImage(out, 0, 0); return fin;
+}
+function halftoneFill(D, w, h, grow, dot, u) {   /* cream letters filled with a dot screen that fades along the height (comic print) */
+  const c = mkCanvas(w, h), x = c.getContext('2d'), im = x.createImageData(w, h), px = im.data, C = hex3(POP_CREAM), P = hex3(dot), p = 4.2 * u;
+  let y0 = h, y1 = 0; for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) if (D[y * w + xx] <= grow) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+    const i = y * w + xx, k = Math.max(0, Math.min(1, grow - D[i] + 0.5)); if (k <= 0) continue;
+    const gx = (xx / p) % 1 - 0.5, gy = ((y / p) + 0.5 * Math.floor(xx / p)) % 1 - 0.5, t = (y - y0) / Math.max(1, y1 - y0), rad = 0.12 + 0.5 * t;
+    const on = Math.hypot(gx, gy) < rad ? 1 : 0, o = i * 4;
+    px[o] = C[0] + (P[0] - C[0]) * on; px[o + 1] = C[1] + (P[1] - C[1]) * on; px[o + 2] = C[2] + (P[2] - C[2]) * on; px[o + 3] = k * 255;
+  }
+  x.putImageData(im, 0, 0); return c;
+}
+function popText(src, it, fx, S) {
+  const w = src.width, h = src.height, u = S / 360, D = distOut(src); if (!D) return src;
+  const col = popTextColor(it.color), out = mkCanvas(w, h), x = out.getContext('2d'), grow = 1.7 * u;   /* letters are made bolder */
+  if (fx === 'balloon') { x.drawImage(inflate3d(D, w, h, col, u), 0, 0); return out; }
+  const dxy = 3.4 * u;
+  x.drawImage(layerOf(D, w, h, grow + 3.4 * u, POP_NAVY, dxy, dxy * 1.1), 0, 0);              /* hard drop shadow */
+  x.drawImage(layerOf(D, w, h, grow + 3.4 * u, POP_NAVY, 0, 0), 0, 0);                         /* dark outline */
+  if (fx === 'bang') x.drawImage(layerOf(D, w, h, grow + 1.8 * u, '#0a9bbf', 0, 0), 0, 0);     /* teal ring */
+  else x.drawImage(layerOf(D, w, h, grow + 1.6 * u, POP_CREAM, 0, 0), 0, 0);                   /* cream ring */
+  if (fx === 'halftone') x.drawImage(halftoneFill(D, w, h, grow, col, u), 0, 0);
+  else x.drawImage(layerOf(D, w, h, grow, fx === 'bang' ? POP_CREAM : col, 0, 0), 0, 0);
+  return out;
 }
 function bubbleCard(items, S) {
-  const c = mkCanvas(S, S), x = c.getContext('2d');
+  const c = mkCanvas(S, S), x = c.getContext('2d'), fxs = items.fx || []; let ti = 0;
   items.forEach(it => {
-    if (it.type !== 'text') { drawItems(x, [it], S); return; }
+    if (it.type !== 'text' && it.type !== 'phrase') { drawItems(x, [it], S); return; }
     const t = mkCanvas(S, S), q = Object.assign({}, it, { bd: false, _bm: null, _bmk: '' }), sb = st.border;
     st.border = 0; try { drawItems(t.getContext('2d'), [q], S); } finally { st.border = sb; }
-    x.drawImage(inflate3d(t, it.color, S), 0, 0);
+    x.drawImage(popText(t, it, fxs[ti++] || 'balloon', S), 0, 0);
   });
   return c;
 }
@@ -2631,7 +2662,7 @@ function threeCards(items) {
   const mix = f => cloneItems(fixed).concat(mov.length ? f(mov) : []);
   const rg = cloneItems(items); rg.ring = ringParams(); rg.deco = ringDeco(items);
   const c1 = cloneItems(items); c1.px = pxParams();
-  const c7 = cloneItems(items); c7.bub = true;
+  const c7 = cloneItems(items); c7.bub = true; c7.fx = items.map(() => FX_LIST[(rng() * FX_LIST.length) | 0]);
   return [c1, overlapCard(items), mix(chainCard), mix(poissonCard), rg, bgShapeCard(items), c7];
 }   /* 1: default layout + pixel art, 2: random images with text on top, 3: text chain + one image */
 function makeResults(keepDefault) {
