@@ -2569,10 +2569,10 @@ function bgShapeCard(items) {
     for (let tr = 0; tr < 400 && !ok; tr++) {
       let x, y;
       if (!big) { const a = rng() * 6.283, d = Math.sqrt(rng()) * 360 * R6.centre * 0.5; x = 180 + Math.cos(a) * d; y = 180 + Math.sin(a) * d; }   /* biggest: within 30% of the middle */
-      else { const a = rng() * 6.283, d = big.r + rad + rr(0, 120 + tr * 0.3); x = big.x + Math.cos(a) * d; y = big.y + Math.sin(a) * d; }
+      else { const a = rng() * 6.283, d = (big.r + rad) * rr(0.55, 1.1) + rr(0, 90 + tr * 0.3); x = big.x + Math.cos(a) * d; y = big.y + Math.sin(a) * d; }
       if (x < rad * 0.5 || y < rad * 0.5 || x > 360 - rad * 0.5 || y > 360 - rad * 0.5) continue;
-      if (placed.some(p => Math.hypot(p.x - x, p.y - y) < p.r + rad + 3)) continue;
-      q.x = x; q.y = y; placed.push({ x, y, r: rad }); if (!big) big = placed[0]; ok = true;
+      if (placed.some(p => Math.hypot(p.x - x, p.y - y) < (p.r + rad) * (p.t === t ? 1 : 0.6) + 3)) continue;   /* same size: no overlap, different size: may overlap */
+      q.x = x; q.y = y; placed.push({ x, y, r: rad, t }); if (!big) big = placed[0]; ok = true;
     }
     if (ok) out.push(q);
   }
